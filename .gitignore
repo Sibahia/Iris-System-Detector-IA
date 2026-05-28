@@ -1,5 +1,6 @@
 # Python
-.github
+.github/
+.github/workflows/
 __pycache__/
 *.py[cod]
 *$py.class
