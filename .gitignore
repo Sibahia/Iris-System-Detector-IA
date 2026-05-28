@@ -1,5 +1,4 @@
 # Python
-.github/
 .github/workflows/
 __pycache__/
 *.py[cod]
