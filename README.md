@@ -27,7 +27,7 @@ Sigue estos pasos en tu terminal para clonar el proyecto y preparar tu entorno d
 
 2. **Crear el entorno virtual (Altamente recomendado)**
     ```bash
-    python3 -m venv venv
+    python -m venv venv
     ```
 
     - **Activar en Linux/macOS:**
@@ -37,11 +37,11 @@ Sigue estos pasos en tu terminal para clonar el proyecto y preparar tu entorno d
 
     - **Activar en Windows:**
         ```bash
-        venv\Scripts\activate
+        .\venv\Scripts\Activate.ps1
         ```
 
 3. **Instalar las dependencias**
-    ```bash
+    ```powershell
     pip install -r requirements.txt
 
     Nota: La primera instalación puede tardar unos minutos mientras descarga librerías pesadas como OpenVINO o parches de procesamiento de video.
@@ -52,7 +52,7 @@ Sigue estos pasos en tu terminal para clonar el proyecto y preparar tu entorno d
 Para verificar que todo el sistema base e interfaces funcionen correctamente después de tus modificaciones:
 
 1. **Iniciar el servidor backend/aplicación**
-    ```bash
+    ```python
     python app.py
     ```
 
