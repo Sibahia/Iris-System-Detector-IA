@@ -1,27 +1,18 @@
 import pytest
-from src.detection.yolo_detector import get_yolo_detector
+import numpy as np
+from src.detection.yolo_detector import YOLOAnomalyDetector, get_yolo_detector
 
 class TestYOLODetector:
     
     @pytest.fixture
     def detector(self):
-        """Initialize detector for tests"""
-        return get_yolo_detector(
+        """Initialize detector for tests using the correct class name"""
+        return YOLOAnomalyDetector(
             model_size='n',
             device='cpu',
             confidence_threshold=0.5,
             crowd_threshold=5,
-            loiter_threshold_seconds=10.0,
-            confidence=0.5
-        )
-    
-    @pytest.fixture
-    def detector(self):
-        """Initialize detector for tests"""
-        return YOLODetector(
-            model_size='n',
-            device='cpu',
-            confidence_threshold=0.5
+            loiter_threshold_seconds=10.0
         )
     
     def test_detector_initialization(self, detector):
