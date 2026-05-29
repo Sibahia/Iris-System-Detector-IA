@@ -33,7 +33,6 @@ graph TD
     
     DET -->|Resultados de Anomalías| API
     DB_MOD <-->|Lectura y Escritura SQL| DB
-    ALT -->|Notificaciones Email| Correo[Usuario / Administrador]
 ```
 ---
 
