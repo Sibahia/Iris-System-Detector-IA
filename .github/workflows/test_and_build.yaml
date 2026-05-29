@@ -25,4 +25,4 @@ jobs:
         pip install -r requirements.txt
     - name: Test with pytest
       run: |
-        pytest --suppress-no-test-exit-code
+        pytest app.py
