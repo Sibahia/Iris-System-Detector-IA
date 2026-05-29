@@ -3,6 +3,39 @@
 Este proyecto es un fork del repositorio [CCTV_Video_Anomaly_Detection](https://github.com/saadkhan2003/CCTV_Video_Anomaly_Detection), sistema de detección de anomalías de vídeo de alto rendimiento, impulsado por IA, diseñado para videovigilancia CCTV. Utiliza YOLOv11 con optimización OpenVINO para la detección en tiempo real en CPU estándar, e incluye una interfaz web y funciones de alerta de anomalías.
 
 ---
+## 🏗️ Arquitectura del Sistema
+
+```mermaid
+graph TD
+    %% Estilos globales
+    classDef frontend fill:#3b82f6,stroke:#1d4ed8,color:#fff,font-weight:bold;
+    classDef backend fill:#10b981,stroke:#047857,color:#fff,font-weight:bold;
+    classDef module fill:#6366f1,stroke:#4338ca,color:#fff;
+    classDef storage fill:#f59e0b,stroke:#b45309,color:#fff;
+
+    %% Nodos de la Arquitectura
+    UI[Frontend: HTML / CSS / JS]:::frontend
+    API[FastAPI Backend]:::backend
+    
+    subgraph Módulos Internos [Núcleo del Servidor]
+        DET[Detection Module<br>YOLOv11 + OpenVINO]:::module
+        DB_MOD[Storage Module<br>SQLite Layer]:::module
+        ALT[Alerts Module<br>SMTP Protocol]:::module
+    end
+    
+    DB[(anomaly_history.db)]:::storage
+
+    %% Flujos de datos y conexiones
+    UI <-->|HTTP Requests / WebSockets| API
+    API -->|Stream de Video / Frames| DET
+    API -->|Llamadas de Persistencia| DB_MOD
+    API -->|Disparador de Eventos| ALT
+    
+    DET -->|Resultados de Anomalías| API
+    DB_MOD <-->|Lectura y Escritura SQL| DB
+    ALT -->|Notificaciones Email| Correo[Usuario / Administrador]
+```
+---
 
 ## 🛠️ Inicio Rápido
 

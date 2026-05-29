@@ -33,9 +33,9 @@ git checkout -b feature/nueva-conexion-camara
 
 ### 2. Desarrollar y respetar la arquitectura
 
-    - Clean Code: Sigue los principios SOLID (especialmente el Principio de Responsabilidad Única).
+- Clean Code: Sigue los principios SOLID (especialmente el Principio de Responsabilidad Única).
 
-    - Base de datos: Si modificas src/storage/database.py, asegúrate de mantener el aislamiento de las rutas utilizando variables de entorno o mockeo dinámico en los entornos de prueba para no corromper la base de datos real (anomaly_history.db).
+- Base de datos: Si modificas src/storage/database.py, asegúrate de mantener el aislamiento de las rutas utilizando variables de entorno o mockeo dinámico en los entornos de prueba para no corromper la base de datos real (anomaly_history.db).
 
 ### 3. Ejecutar la Suite de Pruebas Unitarias
 
@@ -47,7 +47,6 @@ pytest tests/
 
 Debes asegurarte de que tanto el módulo de base de datos (`test_database.py`) como el de detección analítica con visión artificial (`test_detection.py`) marquen un estado exitoso:
 ```Plaintext
-
 ========================= 10 passed in 4.79s ==========================
 ```
 
@@ -65,30 +64,30 @@ git push origin feature/nueva-conexion-camara
 Dirígete a la interfaz web de GitHub y abre un Pull Request hacia la rama main.
 ### 5. Revisión por Pares y Fusión
 
-    - Revisión de Código: Al menos un desarrollador del equipo debe revisar tus cambios, analizar la lógica y otorgar su aprobación (Approve).
+- Revisión de Código: Al menos un desarrollador del equipo debe revisar tus cambios, analizar la lógica y otorgar su aprobación (Approve).
 
-    - Aprobación de la CI: El pipeline automático de GitHub Actions ejecutará de nuevo pytest. Una vez que la CI esté en verde y cuentes con la aprobación de tu par, el botón de Merge se habilitará para unir tus cambios de forma segura a producción.
+- Aprobación de la CI: El pipeline automático de GitHub Actions ejecutará de nuevo pytest. Una vez que la CI esté en verde y cuentes con la aprobación de tu par, el botón de Merge se habilitará para unir tus cambios de forma segura a producción.
 
 ## 🛠️ Stack Tecnológico del Proyecto
 
 Asegúrate de que tu entorno de desarrollo local coincida con las dependencias oficiales del entorno de ejecución automatizado:
 
-    - Lenguaje: Python 3.14+
+- Lenguaje: Python 3.14+
 
-    - Framework de Testing: pytest 9.0+ con plugins para operaciones asíncronas (pytest-asyncio).
+- Framework de Testing: pytest 9.0+ con plugins para operaciones asíncronas (pytest-asyncio).
 
-    - Visión Artificial: Modelos YOLO y procesamiento de video con OpenCV (cv2).
+- Visión Artificial: Modelos YOLO y procesamiento de video con OpenCV (cv2).
 
-    - Persistencia: Capa relacional nativa con SQLite3 mediante gestión con Row Factory para mapeo de diccionarios.
+- Persistencia: Capa relacional nativa con SQLite3 mediante gestión con Row Factory para mapeo de diccionarios.
 
 ## 💬 Estilo de Commits
 
 Para mantener un historial de Git legible y limpio, se recomienda seguir la convención de commits semánticos (Conventional Commits):
 
-    - feat: Nueva característica para el sistema (ej. feat: agregar bounding boxes a eventos de anomalía).
+- feat: Nueva característica para el sistema (ej. feat: agregar bounding boxes a eventos de anomalía).
 
-    - fix: Corrección de un fallo (ej. fix: resolver desajuste de parámetros en fixture test_db).
+- fix: Corrección de un fallo (ej. fix: resolver desajuste de parámetros en fixture test_db).
 
-    - docs: Cambios exclusivos en la documentación (ej. docs: actualizar instrucciones en contributing.md).
+- docs: Cambios exclusivos en la documentación (ej. docs: actualizar instrucciones en contributing.md).
 
-    - refactor: Reestructuración de código existente sin cambiar su comportamiento público.
+- refactor: Reestructuración de código existente sin cambiar su comportamiento público.
