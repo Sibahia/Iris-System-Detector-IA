@@ -73,7 +73,6 @@ def configure_email(
     admin_emails: List[str]
 ):
     """Configure email settings and save to file"""
-    global EMAIL_CONFIG
     EMAIL_CONFIG["smtp_server"] = smtp_server
     EMAIL_CONFIG["smtp_port"] = smtp_port
     EMAIL_CONFIG["sender_email"] = sender_email

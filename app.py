@@ -18,11 +18,13 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundT
 load_dotenv()
 
 # Config from .env
+env_value = os.getenv("EMAIL_CONFIG", "false").lower()
 MODEL_SIZE = os.getenv("MODEL_SIZE", "s")
 DEVICE = os.getenv("DEVICE", "cpu")
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 CROWD_THRESHOLD = int(os.getenv("CROWD_THRESHOLD", "5"))
 LOITER_THRESHOLD = float(os.getenv("LOITER_THRESHOLD", "10.0"))
+EMAIL_CONFIG = env_value in ("true", "1", "yes")
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
