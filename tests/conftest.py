@@ -1,21 +1,23 @@
 import pytest
 import tempfile
 import os
+import importlib
 
 @pytest.fixture
-def test_db():
-    """Create temporary test database"""
+def test_db(monkeypatch):
+    """Crea una base de datos temporal y redirige dinámicamente el módulo de producción"""
     with tempfile.NamedTemporaryFile(delete=False, suffix='.db') as f:
-        db_path = f.name
+        temp_db_path = f.name
+    import src.storage.database as db_module
+    monkeypatch.setattr(db_module, "DB_PATH", temp_db_path)
+    db_module.init_database()
     
-    # Initialize test database
-    from src.storage.database import init_database
-    init_database(db_path)
-    
-    yield db_path
-    
-    # Cleanup
-    os.unlink(db_path)
+    yield temp_db_path
+    if os.path.exists(temp_db_path):
+        try:
+            os.unlink(temp_db_path)
+        except OSError:
+            pass
 
 
 @pytest.fixture
