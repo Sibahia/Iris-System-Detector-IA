@@ -66,10 +66,10 @@ Para verificar que todo el sistema base e interfaces funcionen correctamente des
 
 3. **Prueba de análisis rápida**
 
-        - Ve a la pestaña "Analyze".
+    - Ve a la pestaña "Analyze".
 
-        - Sube un video corto de prueba (formatos soportados: .mp4, .avi, .mov).
+    - Sube un video corto de prueba (formatos soportados: .mp4, .avi, .mov).
 
-        - Deja los parámetros por defecto y haz clic en "Start Analysis".
+    - Deja los parámetros por defecto y haz clic en "Start Analysis".
 
-        - Comprueba que el procesamiento avance en tiempo real y devuelva los recuadros de detección de anomalías sin errores en la consola.
+    - Comprueba que el procesamiento avance en tiempo real y devuelva los recuadros de detección de anomalías sin errores en la consola.
