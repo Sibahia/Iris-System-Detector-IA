@@ -1,7 +1,19 @@
 import pytest
-from src.detection.yolo_detector import YOLODetector
+from src.detection.yolo_detector import get_yolo_detector
 
 class TestYOLODetector:
+    
+    @pytest.fixture
+    def detector(self):
+        """Initialize detector for tests"""
+        return get_yolo_detector(
+            model_size='n',
+            device='cpu',
+            confidence_threshold=0.5,
+            crowd_threshold=5,
+            loiter_threshold_seconds=10.0,
+            confidence=0.5
+        )
     
     @pytest.fixture
     def detector(self):
