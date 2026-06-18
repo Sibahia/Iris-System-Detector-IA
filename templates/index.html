@@ -21,7 +21,6 @@
             <a href="/live" class="nav-link">Live Stream &#128308;</a>
         </nav>
 
-        <!-- Analyze Tab -->
         <div id="analyze-tab" class="tab-content active fade-in">
             <div class="upload-card glass">
                 <div class="upload-icon-wrapper">
@@ -33,7 +32,7 @@
                 </p>
 
                 <div class="file-input-wrapper">
-                    <input type="file" id="videoFile" class="file-input" accept="video/*" onchange="updateFileName()">
+                    <input type="file" id="videoFile" class="file-input" accept="video/*" onchange="updateFileName()" onclick="this.value = null;" autocomplete="off">
                     <label for="videoFile" class="file-label">
                         <span style="font-size: 24px; margin-bottom: 12px;">&#128194;</span>
                         <span>Click to browse or drag video here</span>
@@ -91,7 +90,6 @@
             </div>
         </div>
 
-        <!-- History Tab -->
         <div id="history-tab" class="tab-content fade-in" style="display: none;">
             <div class="glass" style="padding: 24px; border-radius: var(--radius-lg); margin-bottom: 24px;">
                 <div class="settings-row" style="justify-content: flex-start;">
@@ -173,6 +171,9 @@
 
             const formData = new FormData();
             formData.append('file', file);
+
+            fileInput.value = '';
+            document.getElementById('fileName').textContent = '';
 
             try {
                 const crowdThreshold = document.getElementById('crowdThreshold').value;
@@ -263,6 +264,7 @@
                 currentVideoUrl = result.annotated_video_url;
                 const videoEl = document.getElementById('annotated-video');
                 videoEl.src = result.annotated_video_url;
+                videoEl.load();
                 document.getElementById('video-container').style.display = 'block';
                 // Auto play
                 videoEl.play().catch(e => console.log("Auto-play prevented"));
