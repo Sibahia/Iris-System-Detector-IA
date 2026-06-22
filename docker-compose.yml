@@ -1,0 +1,12 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${PORT:-8000}:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./src/storage/anomaly_history.db:/app/src/storage/anomaly_history.db
+      - ./static:/app/static
+      - ./templates:/app/templates
+    restart: unless-stopped

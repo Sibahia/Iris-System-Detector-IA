@@ -1,0 +1,13 @@
+venv/
+__pycache__/
+*.pyc
+.env
+.git/
+.github/
+.gitignore
+*.md
+LICENSE
+docs/
+tests/
+.vscode/
+.idea/
