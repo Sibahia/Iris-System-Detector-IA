@@ -35,6 +35,18 @@ graph TD
     DB_MOD <-->|Lectura y Escritura SQL| DB
 ```
 ---
+## 📈 Diagramas del Sistema
+
+![Diagrama Arquitectura](diagramas/diagrama_arquitectura.png)
+
+![Diagrama Casos de Uso](diagramas/diagrama_casos_uso.png)
+
+![Diagrama Capturar Objetos](diagramas/diagrama_flujo_capturar_objetos.png)
+
+![Diagrama Objetos](diagramas/diagrama_flujo_objetos.png)
+
+![Diagrama Secuencial](diagramas/diagrama_secuencial.png)
+---
 
 ## 🛠️ Inicio Rápido
 
