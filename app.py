@@ -161,7 +161,31 @@ async def startup():
 @app.get("/", response_class=HTMLResponse)
 async def root():
     template_path = os.path.join(TEMPLATES_DIR, "index.html")
-    with open(template_path, "r") as f:
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+    
+@app.get("/logs", response_class=HTMLResponse)
+async def root():
+    template_path = os.path.join(TEMPLATES_DIR, "history.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+    
+@app.get("/historysv2", response_class=HTMLResponse)
+async def root():
+    template_path = os.path.join(TEMPLATES_DIR, "histo.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+
+@app.get("/video-analysis", response_class=HTMLResponse)
+async def root():
+    template_path = os.path.join(TEMPLATES_DIR, "video.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+    
+@app.get("/contributors", response_class=HTMLResponse)
+async def root():
+    template_path = os.path.join(TEMPLATES_DIR, "contributing.html")
+    with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 
