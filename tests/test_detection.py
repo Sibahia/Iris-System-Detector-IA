@@ -30,7 +30,7 @@ class TestYOLODetector:
         assert isinstance(results, dict)
         assert "persons" in results
         assert "weapons" in results
-        assert "vehicles" not in results  # Validamos explícitamente que ya no se procesen
+        assert "vehicles" not in results 
     
     def test_crowd_detection(self, detector):
         """Test crowd anomaly detection using check_anomalies"""
@@ -41,7 +41,7 @@ class TestYOLODetector:
         
         anomalies = detector.check_anomalies(detections)
         assert anomalies["is_anomaly"] == True
-        assert "CROWD_GATHERING" in anomalies["anomaly_types"]
+        assert "AGLOMERACION_DE_PERSONAS" in anomalies["anomaly_types"]
     
     def test_weapon_detection(self, detector):
         """Test weapon detection"""
@@ -52,7 +52,7 @@ class TestYOLODetector:
         
         anomalies = detector.check_anomalies(detections)
         assert anomalies["is_anomaly"] == True
-        assert "WEAPON_DETECTED" in anomalies["anomaly_types"]
+        assert "ARMA_DETECTADA" in anomalies["anomaly_types"]
         assert anomalies["risk_level"] in ["critico", "critical"]
 
     def test_singleton_factory(self):
