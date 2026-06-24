@@ -127,7 +127,23 @@ def run_analysis_task(
         TASKS[task_id]["status"] = "completed"
         TASKS[task_id]["progress"] = 100
         
-        # CAMBIO CLAVE: Mapeo de estadísticas hacia Weapons y remoción del error por max_vehicles
+        # Evaluar el nivel de riesgo y porcentaje final para el frontend
+        final_risk = "normal"
+        risk_percentage = 0
+
+        if stats["max_weapons"] > 0:
+            final_risk = "critico"
+            risk_percentage = 100  # Máximo peligro inmediato por armas
+        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
+            final_risk = "alto"
+            risk_percentage = 85
+        elif stats["anomaly_frames"] > 0:
+            final_risk = "medio"
+            risk_percentage = 50
+        else:
+            final_risk = "normal"
+            risk_percentage = 10
+        
         TASKS[task_id]["result"] = {
             "video_id": video_id,
             "total_frames": stats["total_frames"],
@@ -135,10 +151,12 @@ def run_analysis_task(
             "anomaly_rate": stats["anomaly_rate"],
             "max_people_detected": stats["max_people"],
             "max_weapons_detected": stats["max_weapons"],
-            "max_vehicles_detected": 0,  # Parche para evitar errores en el JS del frontend viejo
+            "max_vehicles_detected": 0,  
             "anomaly_types": stats["anomaly_types_count"],
             "processing_time": stats["processing_time"],
             "annotated_video_url": f"/static/videos/{os.path.basename(output_path)}",
+            "risk_level": final_risk,          # Agregado para el JS
+            "risk_percentage": risk_percentage # Agregado para el JS
         }
 
     except Exception as e:

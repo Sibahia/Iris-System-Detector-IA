@@ -1381,6 +1381,13 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
+
+.lg\:grid-cols-5 {
+  @media (width >= 64rem) {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
   .md\:grid-cols-6 {
     @media (width >= 48rem) {
       grid-template-columns: repeat(6, minmax(0, 1fr));
@@ -1465,6 +1472,17 @@ body {
 }
 .glass-panel-hover:hover {
   background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
+}
+.glass-risk-high {
+  background: color-mix(in oklab, #93000a 5%, transparent);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+.glass-risk-high-hover:hover {
+  background: color-mix(in oklab, #93000a 10%, transparent);
   border-color: rgba(255, 255, 255, 0.2);
   box-shadow: 0 0 60px rgba(0, 0, 0, 0.5);
 }

@@ -85,22 +85,42 @@ async function pollTaskStatus(taskId) {
 
 function displayResults(result) {
     const metricsDiv = document.getElementById('metrics');
+    
+    const isCritico = result.risk_level === 'critico';
+    
+    const riskCardStyles = isCritico 
+        ? "border glass-risk-high text-on-surface-variant animate-pulse" 
+        : "border bg-primary-container/5 text-on-surface";
+        
+    const riskTextStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
+
     metricsDiv.innerHTML = `
         <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Frames</span>
             <div class="font-headline-lg text-headline-lg text-on-surface">${result.total_frames || 0}</div>
         </div>
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 border border-primary-container/30 bg-primary-container/5 glass-panel-hover transition-all">
-            <span class="font-label-sm text-label-sm text-primary-fixed-dim uppercase tracking-wider">Anomalías</span>
-            <div class="font-headline-lg text-headline-lg text-primary-container">${result.anomaly_frames || 0}</div>
-        </div>
+
         <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Riesgo</span>
-            <div class="font-headline-lg text-headline-lg text-on-surface">${(result.anomaly_rate * 100).toFixed(1)}%</div>
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Anomalías</span>
+            <div class="font-headline-lg text-headline-lg text-on-surface">${result.anomaly_frames || 0}</div>
         </div>
+
+        <div class="rounded-xl p-stack-md flex flex-col gap-1 transition-all ${isCritico ? '' : 'glass-panel'} ${riskCardStyles}"
+             ${isCritico ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"' : ''}>
+            <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant'}">Nivel de Riesgo</span>
+            <div class="font-headline-lg text-headline-lg ${riskTextStyles}">
+                ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
+            </div>
+        </div>
+
         <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Personas</span>
-            <div class="flex items-baseline gap-1 font-headline-lg text-headline-lg text-on-surface">${result.max_people_detected || 0}</div>
+            <div class="font-headline-lg text-headline-lg text-on-surface">${result.max_people_detected || 0}</div>
+        </div>
+
+        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Armas</span>
+            <div class="font-headline-lg text-headline-lg text-on-surface">${result.max_weapons_detected || 0}</div>
         </div>
     `;
 
