@@ -825,6 +825,11 @@
   .pt-24 {
     padding-top: calc(var(--spacing) * 24);
   }
+
+  .pt-2 {
+    padding-top: calc(var(--spacing) * 2);
+  }
+
   .pt-stack-lg {
     padding-top: 24px;
   }

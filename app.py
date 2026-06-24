@@ -115,24 +115,27 @@ def run_analysis_task(
                     anomaly_types=list(stats["anomaly_types_count"].keys()),
                     details=[
                         f"Video: {original_filename}",
-                        f"Anomalies: {stats['anomaly_frames']} frames",
-                        f"Rate: {stats['anomaly_rate'] * 100:.1f}%",
+                        f"Anomalias: {stats['anomaly_frames']} cuadros",
+                        f"Tasa: {stats['anomaly_rate'] * 100:.1f}%",
                     ],
                     video_filename=original_filename,
                     video_id=video_id,
                 )
             except Exception as e:
-                logger.error(f"Email error: {e}")
+                logger.error(f"Error de email: {e}")
 
         TASKS[task_id]["status"] = "completed"
         TASKS[task_id]["progress"] = 100
+        
+        # CAMBIO CLAVE: Mapeo de estadísticas hacia Weapons y remoción del error por max_vehicles
         TASKS[task_id]["result"] = {
             "video_id": video_id,
             "total_frames": stats["total_frames"],
             "anomaly_frames": stats["anomaly_frames"],
             "anomaly_rate": stats["anomaly_rate"],
             "max_people_detected": stats["max_people"],
-            "max_vehicles_detected": stats["max_vehicles"],
+            "max_weapons_detected": stats["max_weapons"],
+            "max_vehicles_detected": 0,  # Parche para evitar errores en el JS del frontend viejo
             "anomaly_types": stats["anomaly_types_count"],
             "processing_time": stats["processing_time"],
             "annotated_video_url": f"/static/videos/{os.path.basename(output_path)}",
@@ -170,15 +173,21 @@ async def root():
     with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
     
-@app.get("/historysv2", response_class=HTMLResponse)
+@app.get("/test", response_class=HTMLResponse)
 async def root():
-    template_path = os.path.join(TEMPLATES_DIR, "histo.html")
+    template_path = os.path.join(TEMPLATES_DIR, "video-base.html")
     with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 @app.get("/video-analysis", response_class=HTMLResponse)
 async def root():
     template_path = os.path.join(TEMPLATES_DIR, "video.html")
+    with open(template_path, "r", encoding="utf-8") as f:
+        return HTMLResponse(content=f.read())
+    
+@app.get("/stream-analysis", response_class=HTMLResponse)
+async def root():
+    template_path = os.path.join(TEMPLATES_DIR, "stream.html")
     with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
     

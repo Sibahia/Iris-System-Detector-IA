@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html class="dark" lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>VideoAI - Monitoreo en Tiempo Real</title>
+    <link rel="stylesheet" href="static/css/stream.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+</head>
+<body class="bg-background min-h-screen selection:bg-primary-container/30">
+    <header class="sticky top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
+            <h1 class="font-headline-md text-headline-md font-bold text-primary">VideoAI</h1>
+        </div>
+        <a class="bg-primary-container text-on-primary-container px-8 py-2.5 rounded-full font-bold flex items-center gap-2" href="/">
+            <span class="material-symbols-outlined text-sm">home</span> Inicio
+        </a>
+    </header>
+
+    <main class="relative z-10 pt-32 pb-20 px-grid-margin max-w-7xl mx-auto">
+        <div class="grid grid-cols-12 gap-grid-gutter">
+            <section class="col-span-12 glass-card p-card-padding">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-stack-lg items-end">
+                    <div class="space-y-stack-sm">
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Fuente de Video</label>
+                        <select id="sourceSelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
+                            <option value="webcam">Webcam Local</option>
+                            <option value="rtsp">Stream RTMP / RTSP</option>
+                            <option value="http">Video URL</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-stack-sm" id="cameraSelectContainer">
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Seleccionar Cámara</label>
+                        <select id="cameraSelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
+                            <option value="0">Cámara 0 (Default)</option>
+                            <option value="1">Cámara 1 (Externa)</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-stack-sm hidden" id="urlInputContainer">
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Insertar URL</label>
+                        <input type="text" id="streamUrlInput" placeholder="rtsp://usuario:pass@ip:port/stream" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
+                    </div>
+
+                    <div class="space-y-stack-sm">
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Sensibilidad</label>
+                        <select id="sensitivitySelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
+                            <option value="3">Media (3+ Personas)</option>
+                            <option value="2">Alta (Cualquier movimiento)</option>
+                            <option value="5">Baja (Multitudes)</option>
+                        </select>
+                    </div>
+
+                    <button class="w-full bg-primary-container text-on-primary-fixed h-[50px] rounded-lg font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all orange-glow" id="startMonitoring">
+                        <span class="material-symbols-outlined">play_arrow</span> Iniciar Monitoreo
+                    </button>
+                </div>
+            </section>
+
+            <section class="col-span-12 relative aspect-video glass-card overflow-hidden">
+                <div class="absolute inset-0 z-20 p-stack-md flex flex-col justify-between">
+                    <div class="flex justify-between items-start">
+                        <div class="flex items-center gap-2 bg-black/40 backdrop-blur-md px-3 py-1.5 rounded-full border border-white/10">
+                            <span class="w-2 h-2 rounded-full bg-red-500" id="statusIndicator"></span>
+                            <span class="font-label-sm text-label-sm uppercase" id="statusLabel">● Desconectado</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="absolute inset-0 bg-[#0c0e10] flex items-center justify-center flex-col gap-4 text-center">
+                    <div id="loadingIcon">
+                        <span class="material-symbols-outlined text-[64px] animate-pulse text-on-surface/20">videocam_off</span>
+                        <p class="text-on-surface/40" id="loadingText">Esperando señal de video...</p>
+                    </div>
+                    <div class="hidden absolute inset-0" id="streamCanvas"></div>
+                </div>
+            </section>
+
+            <section class="col-span-12 grid grid-cols-2 md:grid-cols-4 gap-grid-gutter">
+                <div class="glass-card p-6 flex flex-col items-center justify-center text-center">
+                    <span class="font-label-sm uppercase text-on-surface/50">FPS</span>
+                    <span class="font-headline-md text-headline-md text-on-surface" id="metric-fps">0</span>
+                </div>
+                <div class="glass-card p-6 flex flex-col items-center justify-center text-center">
+                    <span class="font-label-sm uppercase text-on-surface/50">Personas</span>
+                    <span class="font-headline-md text-headline-md text-on-surface" id="metric-people">0</span>
+                </div>
+                <div class="glass-card p-6 flex flex-col items-center justify-center text-center">
+                    <span class="font-label-sm uppercase text-on-surface/50">Vehículos</span>
+                    <span class="font-headline-md text-headline-md text-on-surface" id="metric-vehicles">0</span>
+                </div>
+                <div class="glass-card p-6 flex flex-col items-center justify-center text-center">
+                    <span class="font-label-sm uppercase text-on-surface/50">Estado</span>
+                    <span class="font-headline-md text-headline-md text-green-500" id="metric-status">OK</span>
+                </div>
+            </section>
+        </div>
+    </main>
+    <script src="static/js/stream.js"></script>
+</body>
+</html>
