@@ -2,8 +2,8 @@
 SQLite Database Layer for Anomaly Detection History
 ====================================================
 
-Stores and retrieves video analysis history, enabling search and filtering
-of past anomaly detection results.
+Stores and retrieves video and image analysis history, enabling search 
+and filtering of past anomaly detection results.
 """
 
 import sqlite3
@@ -28,7 +28,7 @@ def init_database():
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Create videos table
+    # 1. Create videos table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS videos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -46,7 +46,7 @@ def init_database():
         )
     ''')
     
-    # Create anomaly_events table
+    # 2. Create anomaly_events table
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS anomaly_events (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -59,11 +59,35 @@ def init_database():
             FOREIGN KEY (video_id) REFERENCES videos(id) ON DELETE CASCADE
         )
     ''')
+
+    # 3. Create images table (Nueva tabla para analisis de imagenes fijas)
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS images (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            input_path TEXT NOT NULL,
+            output_path TEXT NOT NULL,
+            model_used TEXT NOT NULL,
+            used_confidence REAL NOT NULL,
+            is_anomaly BOOLEAN NOT NULL,
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto', 'critico')),
+            persons_count INTEGER NOT NULL,
+            weapons_count INTEGER NOT NULL,
+            objects_count INTEGER NOT NULL,
+            anomaly_types TEXT, -- Almacenado como JSON String
+            detected_classes TEXT, -- Almacenado como JSON String
+            processing_time_ms INTEGER NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
     
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully!")
 
+
+# =====================================================================
+# VIDEO ANALYSIS METRIC PERSISTENCE
+# =====================================================================
 
 def save_video_analysis(
     filename: str,
@@ -78,20 +102,13 @@ def save_video_analysis(
     original_video_path: Optional[str] = None,
     frame_bboxes: Optional[List[List[Dict]]] = None
 ) -> int:
-    """
-    Save video analysis results to database
-    
-    Returns:
-        video_id: The ID of the saved video record
-    """
+    """Save video analysis results to database"""
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Calculate additional stats
     avg_score = sum(anomaly_scores) / len(anomaly_scores) if anomaly_scores else 0
     max_score = max(anomaly_scores) if anomaly_scores else 0
     
-    # Insert video record
     cursor.execute('''
         INSERT INTO videos (
             filename, frame_count, anomaly_count, anomaly_rate,
@@ -109,8 +126,7 @@ def save_video_analysis(
         conn.close()
         raise RuntimeError("Failed to insert video record and retrieve its ID.")
     
-    # Insert anomaly events for each frame
-    fps = 30  # Assume 30 fps, can be made dynamic
+    fps = 30
     for i, (score, is_anomaly) in enumerate(zip(anomaly_scores, anomaly_flags)):
         bboxes_json = None
         if frame_bboxes and i < len(frame_bboxes):
@@ -125,7 +141,6 @@ def save_video_analysis(
     
     conn.commit()
     conn.close()
-    
     return video_id
 
 
@@ -133,16 +148,9 @@ def get_all_videos(limit: int = 50, offset: int = 0) -> List[Dict]:
     """Get all video analyses with pagination"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM videos
-        ORDER BY upload_time DESC
-        LIMIT ? OFFSET ?
-    ''', (limit, offset))
-    
+    cursor.execute('SELECT * FROM videos ORDER BY upload_time DESC LIMIT ? OFFSET ?', (limit, offset))
     rows = cursor.fetchall()
     conn.close()
-    
     return [dict(row) for row in rows]
 
 
@@ -150,11 +158,9 @@ def get_video_by_id(video_id: int) -> Optional[Dict]:
     """Get a specific video analysis by ID"""
     conn = get_connection()
     cursor = conn.cursor()
-    
     cursor.execute('SELECT * FROM videos WHERE id = ?', (video_id,))
     row = cursor.fetchone()
     conn.close()
-    
     return dict(row) if row else None
 
 
@@ -162,24 +168,16 @@ def get_anomaly_events(video_id: int) -> List[Dict]:
     """Get all anomaly events for a video"""
     conn = get_connection()
     cursor = conn.cursor()
-    
-    cursor.execute('''
-        SELECT * FROM anomaly_events
-        WHERE video_id = ?
-        ORDER BY frame_number
-    ''', (video_id,))
-    
+    cursor.execute('SELECT * FROM anomaly_events WHERE video_id = ? ORDER BY frame_number', (video_id,))
     rows = cursor.fetchall()
     conn.close()
     
     result = []
     for row in rows:
         event = dict(row)
-        # Parse bounding boxes JSON
         if event.get('bounding_boxes'):
             event['bounding_boxes'] = json.loads(event['bounding_boxes'])
         result.append(event)
-    
     return result
 
 
@@ -201,30 +199,25 @@ def search_videos(
     if filename:
         query += ' AND filename LIKE ?'
         params.append(f'%{filename}%')
-    
     if min_anomaly_rate is not None:
         query += ' AND anomaly_rate >= ?'
         params.append(min_anomaly_rate)
-    
     if max_anomaly_rate is not None:
         query += ' AND anomaly_rate <= ?'
         params.append(max_anomaly_rate)
-    
     if start_date:
         query += ' AND date(upload_time) >= date(?)'
         params.append(start_date)
-    
     if end_date:
         query += ' AND date(upload_time) <= date(?)'
         params.append(end_date)
-    
+        
     query += ' ORDER BY upload_time DESC LIMIT ?'
     params.append(limit)
     
     cursor.execute(query, params)
     rows = cursor.fetchall()
     conn.close()
-    
     return [dict(row) for row in rows]
 
 
@@ -233,7 +226,6 @@ def delete_video(video_id: int) -> bool:
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Get video info first to delete associated files
     cursor.execute('SELECT output_video_path FROM videos WHERE id = ?', (video_id,))
     row = cursor.fetchone()
     
@@ -241,36 +233,155 @@ def delete_video(video_id: int) -> bool:
         video_path = row['output_video_path']
         if os.path.exists(video_path):
             os.remove(video_path)
-    
-    # Delete from database (cascade will delete anomaly_events)
+            
     cursor.execute('DELETE FROM videos WHERE id = ?', (video_id,))
     deleted = cursor.rowcount > 0
     
     conn.commit()
     conn.close()
-    
     return deleted
 
 
-def get_statistics() -> Dict[str, Any]:
-    """Get overall statistics"""
+# =====================================================================
+# IMAGE ANALYSIS METRIC PERSISTENCE
+# =====================================================================
+
+def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
+    """
+    Guarda el diccionario de salida de YOLOImageDetector.process_image en la base de datos.
+    
+    Returns:
+        image_id: El ID del registro insertado.
+    """
     conn = get_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT 
-            COUNT(*) as total_videos,
-            SUM(frame_count) as total_frames,
-            AVG(anomaly_rate) as avg_anomaly_rate,
-            SUM(anomaly_count) as total_anomalies,
-            AVG(processing_time) as avg_processing_time
-        FROM videos
-    ''')
+    # Serializar listas a strings JSON válidos para SQLite
+    anomaly_types_json = json.dumps(analysis_data.get("anomaly_types", []))
+    detected_classes_json = json.dumps(analysis_data.get("detected_classes", []))
     
+    cursor.execute('''
+        INSERT INTO images (
+            input_path, output_path, model_used, used_confidence,
+            is_anomaly, risk_level, persons_count, weapons_count,
+            objects_count, anomaly_types, detected_classes, processing_time_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        analysis_data["input_path"],
+        analysis_data["output_path"],
+        analysis_data["model_used"],
+        analysis_data["used_confidence"],
+        1 if analysis_data["is_anomaly"] else 0,
+        analysis_data["risk_level"],
+        analysis_data["persons_count"],
+        analysis_data["weapons_count"],
+        analysis_data["objects_count"],
+        anomaly_types_json,
+        detected_classes_json,
+        analysis_data["processing_time_ms"]
+    ))
+    
+    image_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    
+    if image_id is None:
+        raise RuntimeError("Failed to insert image record.")
+        
+    return image_id
+
+
+def get_all_images(limit: int = 50, offset: int = 0) -> List[Dict]:
+    """Recupera los registros de imagenes analizadas con paginacion"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM images ORDER BY created_at DESC LIMIT ? OFFSET ?', (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+    
+    result = []
+    for row in rows:
+        img_dict = dict(row)
+        img_dict["anomaly_types"] = json.loads(img_dict["anomaly_types"]) if img_dict.get("anomaly_types") else []
+        img_dict["detected_classes"] = json.loads(img_dict["detected_classes"]) if img_dict.get("detected_classes") else []
+        img_dict["is_anomaly"] = bool(img_dict["is_anomaly"])
+        result.append(img_dict)
+        
+    return result
+
+
+def get_image_by_id(image_id: int) -> Optional[Dict]:
+    """Recupera el analisis de una imagen especifica por su ID"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM images WHERE id = ?', (image_id,))
     row = cursor.fetchone()
     conn.close()
     
-    return dict(row) if row else {}
+    if row:
+        img_dict = dict(row)
+        img_dict["anomaly_types"] = json.loads(img_dict["anomaly_types"]) if img_dict.get("anomaly_types") else []
+        img_dict["detected_classes"] = json.loads(img_dict["detected_classes"]) if img_dict.get("detected_classes") else []
+        img_dict["is_anomaly"] = bool(img_dict["is_anomaly"])
+        return img_dict
+        
+    return None
+
+
+def delete_image(image_id: int) -> bool:
+    """Elimina el registro de una imagen y borra su archivo procesado del disco"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('SELECT output_path FROM images WHERE id = ?', (image_id,))
+    row = cursor.fetchone()
+    
+    if row and row['output_path']:
+        if os.path.exists(row['output_path']):
+            os.remove(row['output_path'])
+            
+    cursor.execute('DELETE FROM images WHERE id = ?', (image_id,))
+    deleted = cursor.rowcount > 0
+    
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+# =====================================================================
+# GLOBAL METRICS & INITIALIZATION
+# =====================================================================
+
+def get_statistics() -> Dict[str, Any]:
+    """Get overall statistics for both videos and images"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Metricas de video (Protegidas con COALESCE por seguridad)
+    cursor.execute('''
+        SELECT 
+            COUNT(*) as total_videos,
+            COALESCE(SUM(frame_count), 0) as total_frames,
+            COALESCE(AVG(anomaly_rate), 0.0) as avg_anomaly_rate,
+            COALESCE(SUM(anomaly_count), 0) as total_anomalies,
+            COALESCE(AVG(processing_time), 0.0) as avg_processing_time
+        FROM videos
+    ''')
+    video_stats = dict(cursor.fetchone())
+    
+    # Metricas de imagenes (Protegidas con COALESCE)
+    cursor.execute('''
+        SELECT 
+            COUNT(*) as total_images,
+            COALESCE(SUM(CASE WHEN is_anomaly = 1 THEN 1 ELSE 0 END), 0) as total_anomalous_images,
+            COALESCE(SUM(weapons_count), 0) as total_weapons_detected_imgs
+        FROM images
+    ''')
+    image_stats = dict(cursor.fetchone())
+    
+    conn.close()
+    
+    return {**video_stats, **image_stats}
 
 
 # Initialize database on import
