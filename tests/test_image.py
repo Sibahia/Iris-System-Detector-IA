@@ -2,7 +2,7 @@ import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import MagicMock, patch
 
-from src.app import app, AVAILABLE_MODELS, DEFAULT_MODEL
+from app import app, AVAILABLE_MODELS, DEFAULT_MODEL
 
 client = TestClient(app)
 
@@ -36,7 +36,7 @@ class TestImageDetectionAPI:
             "summary": "Weapon detected!"
         }
 
-    @patch("src.app.save_image_analysis")
+    @patch("app.save_image_analysis")
     @patch("src.detection.image_detector.YOLOImageDetector")
     def test_analyze_image_endpoint_success(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_normal):
         """Prueba que el endpoint /analyze-image procese una imagen válida correctamente"""
@@ -61,7 +61,7 @@ class TestImageDetectionAPI:
         assert json_data["image_id"] == 42
         assert "annotated_image_url" in json_data
 
-    @patch("src.app.save_image_analysis")
+    @patch("app.save_image_analysis")
     @patch("src.detection.image_detector.YOLOImageDetector")
     def test_analyze_image_endpoint_critical_risk(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_critical):
         """Prueba que calcule el 100% de riesgo si el nivel es crítico"""
