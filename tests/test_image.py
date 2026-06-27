@@ -37,7 +37,7 @@ class TestImageDetectionAPI:
         }
 
     @patch("app.save_image_analysis")
-    @patch("src.detection.image_detector.YOLOImageDetector")
+    @patch("detection.image_detector.YOLOImageDetector")
     def test_analyze_image_endpoint_success(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_normal):
         """Prueba que el endpoint /analyze-image procese una imagen válida correctamente"""
         
@@ -62,7 +62,7 @@ class TestImageDetectionAPI:
         assert "annotated_image_url" in json_data
 
     @patch("app.save_image_analysis")
-    @patch("src.detection.image_detector.YOLOImageDetector")
+    @patch("detection.image_detector.YOLOImageDetector")
     def test_analyze_image_endpoint_critical_risk(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_critical):
         """Prueba que calcule el 100% de riesgo si el nivel es crítico"""
         
