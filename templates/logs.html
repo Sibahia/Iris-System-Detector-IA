@@ -1,72 +1,98 @@
 <!DOCTYPE html>
 <html class="dark" lang="es" style="">
+
 <head>
     <meta charset="utf-8">
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     <title>VideoAI - Historial de Análisis</title>
     <link rel="stylesheet" href="static/css/logs.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet">
+    <link href="/static/fonts/fonts.css" rel="stylesheet">
 </head>
+
 <body class="flex min-h-screen bg-background">
     <header
-            class="fixed top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
-            <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
-                <h1 class="font-headline-md text-headline-md font-bold text-primary">VideoAI</h1>
-            </div>
-            <div class="flex items-center gap-6">
-                <nav class="hidden md:flex gap-8">
+        class="fixed top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
+            <h1 class="font-headline-md text-headline-md font-bold text-primary">VideoAI</h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <nav class="hidden md:flex gap-8">
 
 
-                </nav>
-                <a class="bg-primary-container text-on-primary-container font-label-md text-label-md px-8 py-2.5 rounded-full font-bold active:scale-95 duration-200 orange-glow flex items-center gap-2"
-                    href="/">
-                    <span class="material-symbols-outlined text-sm">home</span>
-                    Inicio
-                </a>
-            </div>
-        </header>
+            </nav>
+            <a class="bg-primary-container text-on-primary-container font-label-md text-label-md px-8 py-2.5 rounded-full font-bold active:scale-95 duration-200 orange-glow flex items-center gap-2"
+                href="/">
+                <span class="material-symbols-outlined text-sm">home</span>
+                Inicio
+            </a>
+        </div>
+    </header>
 
     <main class="flex-1 relative z-10 px-grid-margin py-stack-xl mt-16">
         <header class="flex flex-col md:flex-row md:items-end justify-between gap-stack-lg mb-stack-xl">
             <div>
                 <h1 class="font-display-lg text-display-lg text-on-surface leading-none mb-2">Historial</h1>
-                <p class="font-body-lg text-body-lg text-on-surface-variant">Revisa y gestiona los análisis de video realizados por la IA.</p>
+                <p class="font-body-lg text-body-lg text-on-surface-variant">Revisa y gestiona los análisis de video
+                    realizados por la IA.</p>
             </div>
         </header>
 
         <div class="grid grid-cols-12 gap-grid-gutter">
-            <div class="col-span-12 glass-panel p-6 rounded-xl flex flex-wrap items-center gap-stack-md" style="--mouse-x: 770px; --mouse-y: 94px;">
+            <div class="col-span-12 glass-panel p-6 rounded-xl flex flex-wrap items-center gap-stack-md"
+                style="--mouse-x: 770px; --mouse-y: 94px;">
                 <div class="flex-1 min-w-[280px] relative">
-                    <span class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
-                    <input id="search-filename" class="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-primary-container text-on-surface placeholder:text-on-surface-variant/50 transition-colors" placeholder="Buscar por nombre de archivo..." type="text">
+                    <span
+                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+                    <input id="search-filename"
+                        class="w-full bg-black/40 border border-white/10 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:border-primary-container text-on-surface placeholder:text-on-surface-variant/50 transition-colors"
+                        placeholder="Buscar por nombre de archivo..." type="text">
                 </div>
                 <div class="flex items-center flex-wrap gap-stack-sm">
-                    <select id="filter-rate" class="bg-black/40 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-primary-container text-on-surface appearance-none pr-10 cursor-pointer transition-colors">
+                    <select id="filter-rate"
+                        class="bg-black/40 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-primary-container text-on-surface appearance-none pr-10 cursor-pointer transition-colors">
                         <option value="">Todos los Riesgos</option>
                         <option value="0">Riesgo Bajo</option>
                         <option value="0.25">Riesgo Medio</option>
                         <option value="0.5">Riesgo Alto</option>
                     </select>
-                    <button onclick="loadHistory()" class="bg-primary-container text-on-primary-container font-bold px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all glow-button shadow-lg shadow-primary-container/20">Filtrar</button>
-                    <button onclick="clearFilters()" class="bg-white/10 text-on-surface font-bold px-6 py-3 rounded-xl hover:bg-white/20 active:scale-95 transition-all">Limpiar</button>
+                    <button onclick="loadHistory()"
+                        class="bg-primary-container text-on-primary-container font-bold px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all glow-button shadow-lg shadow-primary-container/20">Filtrar</button>
+                    <button onclick="clearFilters()"
+                        class="bg-white/10 text-on-surface font-bold px-6 py-3 rounded-xl hover:bg-white/20 active:scale-95 transition-all">Limpiar</button>
                 </div>
             </div>
 
-            <div class="col-span-12 glass-panel rounded-xl overflow-hidden border border-white/10" style="--mouse-x: 795px; --mouse-y: 178px;">
+            <div class="col-span-12 glass-panel rounded-xl overflow-hidden border border-white/10"
+                style="--mouse-x: 795px; --mouse-y: 178px;">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
                             <tr class="bg-white/5 border-b border-white/10">
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">ID</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Archivo</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Fecha</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Frames</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Umbral</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Eventos</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">Riesgo</th>
-                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">Acciones</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    ID</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    Archivo</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    Fecha</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    Frames</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    Umbral</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
+                                    Eventos</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">
+                                    Riesgo</th>
+                                <th
+                                    class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">
+                                    Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="history-body" class="divide-y divide-white/5"></tbody>
@@ -77,10 +103,13 @@
                 </div>
             </div>
         </div>
-        <footer class="mt-stack-xl pt-stack-lg border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-stack-md">
-            <p class="font-label-sm text-label-sm text-on-surface-variant opacity-60">© 2024 VideoAI. Todos los derechos reservados.</p>
+        <footer
+            class="mt-stack-xl pt-stack-lg border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-stack-md">
+            <p class="font-label-sm text-label-sm text-on-surface-variant opacity-60">© 2024 VideoAI. Todos los derechos
+                reservados.</p>
         </footer>
     </main>
     <script src="static/js/logs.js"></script>
 </body>
+
 </html>
