@@ -36,19 +36,21 @@
             </div>
 
             <div class="bento-grid">
-                <div
+                <div id="dropzone-zone"
                     class="col-span-12 lg:col-span-8 glass-card rounded-xl p-card-padding flex flex-col items-center justify-center min-h-[400px] border-dashed border-2 border-white/20 group cursor-pointer">
-                    <div class="flex flex-col items-center gap-stack-md text-center">
+                    <input type="file" id="image-input" accept="image/*" class="hidden">
+                    <div id="dropzone-content" class="flex flex-col items-center gap-stack-md text-center">
                         <div
                             class="w-20 h-20 rounded-full bg-primary-container/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
                             <span class="material-symbols-outlined text-primary-container text-5xl">cloud_upload</span>
                         </div>
                         <div>
-                            <p class="font-headline-md text-headline-md text-on-surface">HAZ CLIC PARA BUSCAR O ARRASTRA
+                            <p id="dropzone-text" class="font-headline-md text-headline-md text-on-surface">HAZ CLIC PARA BUSCAR O ARRASTRA
                                 LA IMAGEN AQUÍ</p>
-                            <p class="font-label-md text-label-md text-on-surface-variant mt-2">Tamaño máximo de
+                            <p id="file-info" class="font-label-md text-label-md text-on-surface-variant mt-2">Tamaño máximo de
                                 archivo: 25MB</p>
                         </div>
+                        <img id="image-preview" class="hidden max-h-[200px] rounded-lg border border-white/10 mt-stack-md" src="">
                     </div>
                 </div>
 
@@ -58,11 +60,8 @@
                         <div class="flex flex-col gap-2">
                             <label class="font-label-sm text-label-sm text-primary uppercase tracking-wider">Modelo de IA</label>
                             <div class="relative group">
-                                <select
+                                <select id="model-select"
                                     class="w-full bg-surface-container border-outline-variant text-on-surface rounded-lg py-3 px-4 appearance-none focus:ring-2 focus:ring-primary-container focus:border-transparent outline-none transition-all font-body-md pr-12">
-                                    <option class="font-body-md">YOLOv8 - Detección General</option>
-                                    <option class="font-body-md">EfficientNet - Clasificación</option>
-                                    <option class="font-body-md">Custom Model - Especializado</option>
                                 </select>
                                 <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant group-focus-within:text-primary transition-colors">expand_more</span>
                             </div>
@@ -82,7 +81,7 @@
                             </div>
                         </div>
                     </div>
-                    <button
+                    <button id="analyze-btn"
                         class="w-full mt-stack-xl bg-primary-container text-on-primary-container font-headline-md py-4 rounded-xl primary-glow transition-all active:scale-[0.98] flex items-center justify-center gap-2">
                         <span class="material-symbols-outlined">play_arrow</span>
                         Iniciar Análisis
@@ -91,56 +90,36 @@
             </div>
         </section>
 
-        <section class="space-y-stack-lg">
+        <div id="error-message" class="hidden mb-stack-lg p-stack-md bg-error-container/20 border border-error/30 rounded-xl text-error font-body-md"></div>
+
+        <section id="results-section" class="space-y-stack-lg hidden">
             <div class="flex items-center justify-between border-b border-white/12 pb-4">
                 <h2 class="font-headline-lg text-headline-lg text-on-surface">Resultados del Análisis</h2>
                 <div class="flex gap-2">
-                    <span class="px-3 py-1 bg-green-500/10 text-green-400 text-label-sm rounded-full border border-green-500/20 flex items-center gap-1">
+                    <span id="status-badge" class="px-3 py-1 bg-green-500/10 text-green-400 text-label-sm rounded-full border border-green-500/20 flex items-center gap-1">
                         <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
                         Procesamiento completado
                     </span>
                 </div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-stack-lg">
-                <div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Objetos Detectados</span>
-                    <span class="font-display-lg text-headline-lg text-primary">24</span>
-                </div>
-                <div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Confidencia Media</span>
-                    <span class="font-display-lg text-headline-lg text-primary">94.2%</span>
-                </div>
-                <div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Tiempo de Inferencia</span>
-                    <span class="font-display-lg text-headline-lg text-primary">124ms</span>
-                </div>
-                <div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Categoría Dominante</span>
-                    <span class="font-display-lg text-headline-lg text-primary">Retail</span>
-                </div>
-            </div>
+            <div id="metrics-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-stack-lg"></div>
+
+            <div id="class-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-stack-lg"></div>
 
             <div class="glass-card rounded-2xl overflow-hidden p-stack-md relative min-h-[600px] flex items-center justify-center">
-                <div class="absolute inset-0 z-10 pointer-events-none border-[20px] border-transparent">
-                    <div class="absolute top-[20%] left-[15%] w-[30%] h-[40%] border-2 border-primary-container bg-primary-container/10 rounded-sm">
-                        <span class="absolute -top-6 left-0 bg-primary-container text-on-primary-container text-[10px] px-2 py-0.5 rounded font-bold uppercase">Persona 0.98</span>
-                    </div>
-                    <div class="absolute top-[50%] left-[60%] w-[20%] h-[30%] border-2 border-blue-400 bg-blue-400/10 rounded-sm">
-                        <span class="absolute -top-6 left-0 bg-blue-400 text-white text-[10px] px-2 py-0.5 rounded font-bold uppercase">Carrito 0.92</span>
-                    </div>
-                </div>
+                <div id="detections-overlay" class="absolute inset-0 z-10 pointer-events-none border-[20px] border-transparent"></div>
                 <div class="w-full h-full rounded-xl overflow-hidden">
-                    <img class="w-full h-full object-cover opacity-80"
-                        data-alt="..."
-                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBDq6ecRqAmSFrUvhMZHHVRtPawyfmybD8ic6tD3cBPZEHxMAoDj2J6jswmWzrHMPaDMdVt3m0pi6WGU3HeQNMm0JoYKwgCqvTcy_5g6-QsRt7UJ3Eu8ywxy2lSbiDXHZoqUbB09FD8i6yoBdwlc7gzDIy1WZhhK7pBr7-v-aHvjyVVrBIdfeWYrHMB63JFLTobko8GqLgunVmvTGcSFfiSBXDIgOiyYqLY3YMJ9fZkpA5FbBrAB3SRIAdIlOcSMRA82Do3IZXE-K0b">
+                    <img id="result-image" class="w-full h-full object-cover"
+                        data-alt="Imagen analizada"
+                        src="">
                 </div>
                 <div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-4">
-                    <button class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
+                    <button id="zoom-btn" class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">zoom_in</span>
                         Ampliar Detalle
                     </button>
-                    <button class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
+                    <button id="export-json-btn" class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
                         <span class="material-symbols-outlined text-sm">download</span>
                         Exportar JSON
                     </button>

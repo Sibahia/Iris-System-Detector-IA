@@ -197,6 +197,12 @@ class YOLOImageDetector:
         cv2.imwrite(output_path, annotated_frame)
         processing_time = time.time() - start_time
 
+        # Calcular conteo por clase desde all_boxes
+        class_counts = {}
+        for d in detections["all_boxes"]:
+            name = d["class_name"]
+            class_counts[name] = class_counts.get(name, 0) + 1
+
         # Formato estructurado directo para persistencia en base de datos
         return {
             "input_path": input_path,
@@ -208,6 +214,7 @@ class YOLOImageDetector:
             "persons_count": len(detections["persons"]),
             "weapons_count": len(detections["weapons"]),
             "objects_count": len(detections["other_objects"]),
+            "class_counts": class_counts,
             "anomaly_types": anomalies["anomaly_types"], # Guardar como JSON o texto separado por comas
             "detected_classes": list(set([d["class_name"] for d in detections["all_boxes"]])), # Guardar como JSON
             "processing_time_ms": int(processing_time * 1000)

@@ -243,7 +243,7 @@ async def view_stream_analysis():
 
 @app.get("/image-analysis", response_class=HTMLResponse)
 async def view_image_analysis():
-    template_path = os.path.join(TEMPLATES_DIR, "image.html")
+    template_path = os.path.join(TEMPLATES_DIR, "images.html")
     with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
     

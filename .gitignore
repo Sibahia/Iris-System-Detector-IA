@@ -19,6 +19,7 @@ email_config.json
 anomaly_history.db
 static/videos/*.avi
 static/videos/*.mp4
+static/images/*
 .env
 
 # Logs
