@@ -24,6 +24,7 @@ CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.5"))
 CROWD_THRESHOLD = int(os.getenv("CROWD_THRESHOLD", "5"))
 LOITER_THRESHOLD = float(os.getenv("LOITER_THRESHOLD", "10.0"))
 EMAIL_CONFIG = env_value in ("true", "1", "yes")
+SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
@@ -215,43 +216,50 @@ class HealthResponse(BaseModel):
 async def view_root():
     template_path = os.path.join(TEMPLATES_DIR, "index.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
     
 @app.get("/logs", response_class=HTMLResponse)
 async def view_logs():
     template_path = os.path.join(TEMPLATES_DIR, "logs.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
     
 @app.get("/video-base", response_class=HTMLResponse)
 async def view_video_base():
     template_path = os.path.join(TEMPLATES_DIR, "video-base.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
 
 @app.get("/video-analysis", response_class=HTMLResponse)
 async def view_video_analysis():
     template_path = os.path.join(TEMPLATES_DIR, "video.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
     
 @app.get("/stream-analysis", response_class=HTMLResponse)
 async def view_stream_analysis():
     template_path = os.path.join(TEMPLATES_DIR, "stream.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
 
 @app.get("/image-analysis", response_class=HTMLResponse)
 async def view_image_analysis():
     template_path = os.path.join(TEMPLATES_DIR, "images.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
     
 @app.get("/contributors", response_class=HTMLResponse)
 async def view_contributors():
     template_path = os.path.join(TEMPLATES_DIR, "contributing.html")
     with open(template_path, "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
+        return HTMLResponse(content=content)
 
 
 @app.get("/health")
