@@ -129,37 +129,37 @@ function displayResults(result) {
     const riskTextStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
 
     metricsDiv.innerHTML = `
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+        <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Frames</span>
-            <div class="font-headline-lg text-headline-lg text-on-surface">${result.total_frames || 0}</div>
+            <div class="font-headline-lg text-headline-md text-on-surface">${result.total_frames || 0}</div>
         </div>
 
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+        <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Anomalías</span>
-            <div class="font-headline-lg text-headline-lg text-on-surface">${result.anomaly_frames || 0}</div>
+            <div class="font-headline-lg text-headline-md text-on-surface">${result.anomaly_frames || 0}</div>
         </div>
 
-        <div class="rounded-xl p-stack-md flex flex-col gap-1 transition-all ${isCritico ? '' : 'glass-panel'} ${riskCardStyles}"
+        <div class="rounded-xl p-4 flex flex-col gap-1 transition-all text-center justify-center ${isCritico ? '' : 'glass-panel'} ${riskCardStyles}"
              ${isCritico ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"' : ''}>
             <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant'}">Nivel de Riesgo</span>
-            <div class="font-headline-lg text-headline-lg ${riskTextStyles}">
+            <div class="font-headline-md text-headline-md ${riskTextStyles}">
                 ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
             </div>
         </div>
 
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+        <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Personas</span>
-            <div class="font-headline-lg text-headline-lg text-on-surface">${result.max_people_detected || 0}</div>
+            <div class="font-headline-lg text-headline-md text-on-surface">${result.max_people_detected || 0}</div>
         </div>
 
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+        <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 glass-panel-hover transition- text-center justify-center">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Armas</span>
-            <div class="font-headline-lg text-headline-lg text-on-surface">${result.max_weapons_detected || 0}</div>
+            <div class="font-headline-lg text-headline-md text-on-surface">${result.max_weapons_detected || 0}</div>
         </div>
 
-        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+        <div class="glass-panel rounded-xl p-4 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Modelo</span>
-            <div class="font-body-md text-body-md text-on-surface font-mono">${result.model_name || 'default'}</div>
+            <div class="font-body-md text-headline-md text-on-surface font-headline">${result.model_name || 'default'}</div>
         </div>
     `;
 

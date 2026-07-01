@@ -40,7 +40,11 @@ from storage.database import (
     save_image_analysis,
     get_all_images,
     get_image_by_id,
-    delete_image
+    delete_image,
+    save_stream_analysis,
+    get_all_streams,
+    get_stream_by_id,
+    delete_stream,
 )
 
 logging.basicConfig(level=logging.INFO)
@@ -479,6 +483,101 @@ async def delete_image_history_item(image_id: int):
 
 
 # =====================================================================
+# STREAM HISTORY ENDPOINTS
+# =====================================================================
+
+@app.get("/stream-history")
+async def get_stream_history(limit: int = Query(50), offset: int = Query(0)):
+    return get_all_streams(limit=limit, offset=offset)
+
+
+@app.get("/stream-history/{stream_id}")
+async def get_stream_history_item(stream_id: int):
+    result = get_stream_by_id(stream_id)
+    if not result:
+        raise HTTPException(404, "Stream record not found")
+    return result
+
+
+@app.delete("/stream-history/{stream_id}")
+async def delete_stream_history_item(stream_id: int):
+    success = delete_stream(stream_id)
+    if not success:
+        raise HTTPException(404, "Stream record not found")
+    return {"deleted": True}
+
+
+# =====================================================================
+# COMBINED HISTORY (videos + images + streams)
+# =====================================================================
+
+@app.get("/combined-history")
+async def get_combined_history(
+    filename: Optional[str] = Query(None),
+    min_anomaly_rate: Optional[float] = Query(None),
+    record_type: Optional[str] = Query(None),
+):
+    videos = get_all_videos(limit=1000)
+    images = get_all_images(limit=1000)
+    streams = get_all_streams(limit=1000)
+
+    result = []
+
+    for v in videos:
+        item = dict(v)
+        item["record_type"] = "video"
+        result.append(item)
+
+    for img in images:
+        result.append({
+            "id": img["id"],
+            "filename": os.path.basename(img["input_path"]),
+            "upload_time": img["created_at"],
+            "frame_count": None,
+            "anomaly_count": 1 if img["is_anomaly"] else 0,
+            "anomaly_rate": 1.0 if img["is_anomaly"] else 0.0,
+            "threshold_used": img["used_confidence"],
+            "model_used": img.get("model_used", ""),
+            "risk_level": img["risk_level"],
+            "processing_time": img["processing_time_ms"] / 1000.0 if img.get("processing_time_ms") else None,
+            "record_type": "image",
+        })
+
+    for s in streams:
+        result.append({
+            "id": s["id"],
+            "filename": s.get("source", "Desconocido"),
+            "upload_time": s.get("start_time", ""),
+            "frame_count": s.get("total_frames", 0),
+            "anomaly_count": s.get("anomaly_frames", 0),
+            "anomaly_rate": s.get("anomaly_rate", 0.0),
+            "threshold_used": s.get("confidence", 0),
+            "model_used": s.get("model_used", ""),
+            "risk_level": s.get("risk_level", "normal"),
+            "processing_time": s.get("duration_seconds", 0),
+            "record_type": "stream",
+        })
+
+    if record_type == "video":
+        result = [r for r in result if r["record_type"] == "video"]
+    elif record_type == "image":
+        result = [r for r in result if r["record_type"] == "image"]
+    elif record_type == "stream":
+        result = [r for r in result if r["record_type"] == "stream"]
+
+    if filename:
+        fl = filename.lower()
+        result = [r for r in result if fl in r.get("filename", "").lower()]
+
+    if min_anomaly_rate is not None:
+        result = [r for r in result if (r.get("anomaly_rate") or 0) >= min_anomaly_rate]
+
+    result.sort(key=lambda r: r.get("upload_time", "") or "", reverse=True)
+
+    return result
+
+
+# =====================================================================
 # GLOBAL STATS & CORE OPERATIONS
 # =====================================================================
 
@@ -546,9 +645,17 @@ async def start_live_stream(data: dict):
 
 @app.post("/live/stop")
 async def stop_live_stream(data: dict):
-    from detection.live_stream import stop_stream
+    from detection.live_stream import get_stream, stop_stream
 
     stream_id = data.get("stream_id", "main")
+    stream = get_stream(stream_id)
+    if stream and stream.is_running:
+        summary = stream.get_summary()
+        try:
+            save_stream_analysis(summary)
+        except Exception as e:
+            logger.error(f"Failed to save stream summary: {e}")
+
     success = stop_stream(stream_id)
 
     return {"success": success}

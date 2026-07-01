@@ -80,7 +80,31 @@ def init_database():
         )
     ''')
     
-    # 4. Migrate: add model_used column to videos if not exists
+    # 4. Create streams table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS streams (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            stream_id TEXT NOT NULL,
+            source TEXT NOT NULL,
+            model_used TEXT,
+            confidence REAL,
+            crowd_threshold INTEGER,
+            start_time TEXT,
+            end_time TEXT,
+            duration_seconds REAL,
+            avg_fps REAL,
+            total_frames INTEGER DEFAULT 0,
+            anomaly_frames INTEGER DEFAULT 0,
+            anomaly_rate REAL DEFAULT 0,
+            max_person_count INTEGER DEFAULT 0,
+            max_weapon_count INTEGER DEFAULT 0,
+            class_counts TEXT,
+            anomaly_types TEXT,
+            risk_level TEXT DEFAULT 'normal'
+        )
+    ''')
+
+    # 5. Migrate: add model_used column to videos if not exists
     try:
         cursor.execute("ALTER TABLE videos ADD COLUMN model_used TEXT")
         print("✅ Added model_used column to videos")
@@ -353,6 +377,102 @@ def delete_image(image_id: int) -> bool:
     cursor.execute('DELETE FROM images WHERE id = ?', (image_id,))
     deleted = cursor.rowcount > 0
     
+    conn.commit()
+    conn.close()
+    return deleted
+
+
+# =====================================================================
+# STREAM ANALYSIS PERSISTENCE
+# =====================================================================
+
+def save_stream_analysis(data: Dict[str, Any]) -> int:
+    """Save stream analysis summary to database"""
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    class_counts_json = json.dumps(data.get("class_counts", {}))
+    anomaly_types_json = json.dumps(data.get("anomaly_types", []))
+
+    cursor.execute('''
+        INSERT INTO streams (
+            stream_id, source, model_used, confidence, crowd_threshold,
+            start_time, end_time, duration_seconds, avg_fps,
+            total_frames, anomaly_frames, anomaly_rate,
+            max_person_count, max_weapon_count,
+            class_counts, anomaly_types, risk_level
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ''', (
+        data.get("stream_id", "main"),
+        data.get("source", ""),
+        data.get("model_used"),
+        data.get("confidence"),
+        data.get("crowd_threshold"),
+        data.get("start_time"),
+        data.get("end_time"),
+        data.get("duration_seconds"),
+        data.get("avg_fps"),
+        data.get("total_frames", 0),
+        data.get("anomaly_frames", 0),
+        data.get("anomaly_rate", 0.0),
+        data.get("max_person_count", 0),
+        data.get("max_weapon_count", 0),
+        class_counts_json,
+        anomaly_types_json,
+        data.get("risk_level", "normal"),
+    ))
+
+    stream_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    if stream_id is None:
+        raise RuntimeError("Failed to insert stream record.")
+    return stream_id
+
+
+def get_all_streams(limit: int = 50, offset: int = 0) -> List[Dict]:
+    """Get all stream analyses with pagination"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM streams ORDER BY start_time DESC LIMIT ? OFFSET ?', (limit, offset))
+    rows = cursor.fetchall()
+    conn.close()
+
+    result = []
+    for row in rows:
+        d = dict(row)
+        if d.get("class_counts"):
+            d["class_counts"] = json.loads(d["class_counts"])
+        if d.get("anomaly_types"):
+            d["anomaly_types"] = json.loads(d["anomaly_types"])
+        result.append(d)
+    return result
+
+
+def get_stream_by_id(stream_db_id: int) -> Optional[Dict]:
+    """Get a specific stream analysis by DB id"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('SELECT * FROM streams WHERE id = ?', (stream_db_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        d = dict(row)
+        if d.get("class_counts"):
+            d["class_counts"] = json.loads(d["class_counts"])
+        if d.get("anomaly_types"):
+            d["anomaly_types"] = json.loads(d["anomaly_types"])
+        return d
+    return None
+
+
+def delete_stream(stream_db_id: int) -> bool:
+    """Delete a stream analysis record"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('DELETE FROM streams WHERE id = ?', (stream_db_id,))
+    deleted = cursor.rowcount > 0
     conn.commit()
     conn.close()
     return deleted

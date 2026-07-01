@@ -49,6 +49,13 @@
                         placeholder="Buscar por nombre de archivo..." type="text">
                 </div>
                 <div class="flex items-center flex-wrap gap-stack-sm">
+                    <select id="filter-type"
+                        class="bg-black/40 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-primary-container text-on-surface appearance-none pr-10 cursor-pointer transition-colors">
+                        <option value="">Todos</option>
+                        <option value="video">Video</option>
+                        <option value="image">Imagen</option>
+                        <option value="stream">Stream</option>
+                    </select>
                     <select id="filter-rate"
                         class="bg-black/40 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-primary-container text-on-surface appearance-none pr-10 cursor-pointer transition-colors">
                         <option value="">Todos los Riesgos</option>
@@ -80,7 +87,7 @@
                                     Fecha</th>
                                 <th
                                     class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
-                                    Frames</th>
+                                    Detalles</th>
                                 <th
                                     class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">
                                     Umbral</th>
