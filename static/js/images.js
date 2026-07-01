@@ -22,7 +22,10 @@
       const reader = new FileReader();
       reader.onload = function (e) {
         preview.src = e.target.result;
-        preview.classList.remove('hidden');
+        dropzone.style.backgroundImage = `url(${e.target.result})`;
+        dropzone.style.backgroundSize = 'cover';
+        dropzone.style.backgroundPosition = 'center';
+        dropzone.classList.add('has-image');
       };
       reader.readAsDataURL(file);
       hideError();
@@ -31,18 +34,18 @@
     dropzone.addEventListener('dragover', (e) => {
       e.preventDefault();
       dropzone.style.borderColor = '#ff8c00';
-      dropzone.style.background = 'rgba(255, 140, 0, 0.05)';
+      dropzone.style.backgroundColor = 'rgba(255, 140, 0, 0.05)';
     });
 
     dropzone.addEventListener('dragleave', () => {
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.background = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.background = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
       if (e.dataTransfer.files.length > 0) {
         fileInput.files = e.dataTransfer.files;
         fileInput.dispatchEvent(new Event('change'));
