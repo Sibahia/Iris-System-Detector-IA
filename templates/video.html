@@ -43,17 +43,20 @@
 
         <div
             class="glass-panel rounded-2xl p-6 w-full max-w-3xl flex flex-col items-center gap-4 glass-panel-hover transition-all duration-300">
-            <input type="file" id="videoFile" class="hidden" accept="video/*" onchange="updateFileName(this)"
+            <input type="file" id="videoFile" class="hidden" accept="video/*"
                 onclick="this.value = null;" autocomplete="off">
-            <div onclick="document.getElementById('videoFile').click()"
+            <div id="video-dropzone"
                 class="w-full border-2 border-dashed border-white/20 rounded-xl p-stack-xl flex flex-col items-center justify-center gap-stack-md bg-surface-container/30 hover:bg-surface-container/50 hover:border-primary-container/50 transition-colors cursor-pointer group">
-                <div
-                    class="w-16 h-16 rounded-full bg-surface-variant flex items-center justify-center group-hover:scale-110 transition-transform">
-                    <span class="material-symbols-outlined text-3xl text-primary-container">folder_open</span>
+                <div id="video-upload-placeholder" class="flex flex-col items-center gap-stack-md">
+                    <div
+                        class="w-16 h-16 rounded-full bg-surface-variant flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-3xl text-primary-container">folder_open</span>
+                    </div>
+                    <span id="fileName"
+                        class="font-label-md text-label-md text-primary-fixed-dim tracking-wider uppercase">Haz clic para
+                        buscar o arrastra el video</span>
                 </div>
-                <span id="fileName"
-                    class="font-label-md text-label-md text-primary-fixed-dim tracking-wider uppercase">Haz clic para
-                    buscar o arrastra el video</span>
+                <img id="video-preview" class="hidden max-h-[300px] rounded-lg border border-white/10 object-contain" src="">
             </div>
 
             <div class="w-full max-w-lg mt-stack-lg">

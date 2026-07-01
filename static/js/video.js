@@ -1,17 +1,77 @@
 let currentVideoUrl = null;
 
-// Recibimos el elemento 'input' directamente desde el HTML con 'this'
+function initVideoUpload() {
+    const dropzone = document.getElementById('video-dropzone');
+    const fileInput = document.getElementById('videoFile');
+    const placeholder = document.getElementById('video-upload-placeholder');
+    const preview = document.getElementById('video-preview');
+    const fileName = document.getElementById('fileName');
+
+    if (!dropzone || !fileInput) return;
+
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        fileName.textContent = file.name;
+        const url = URL.createObjectURL(file);
+        preview.src = url;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
+        document.getElementById('results').style.display = 'none';
+        document.getElementById('loading').style.display = 'none';
+    });
+
+    dropzone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = '#ff8c00';
+        dropzone.style.backgroundColor = 'rgba(255, 140, 0, 0.05)';
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        dropzone.style.backgroundColor = '';
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+        dropzone.style.backgroundColor = '';
+        if (e.dataTransfer.files.length > 0) {
+            fileInput.files = e.dataTransfer.files;
+            fileInput.dispatchEvent(new Event('change'));
+        }
+    });
+}
+
 function updateFileName(input) {
     const display = document.getElementById('fileName');
+    const preview = document.getElementById('video-preview');
+    const placeholder = document.getElementById('video-upload-placeholder');
     
     if (input.files && input.files.length > 0) {
         display.textContent = input.files[0].name;
-        // Ocultamos resultados anteriores al seleccionar un nuevo video
+        const url = URL.createObjectURL(input.files[0]);
+        preview.src = url;
+        preview.classList.remove('hidden');
+        placeholder.classList.add('hidden');
         document.getElementById('results').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
     } else {
         display.textContent = 'Haz clic para buscar o arrastra el video';
+        preview.classList.add('hidden');
+        placeholder.classList.remove('hidden');
     }
+}
+
+function resetUploadUI() {
+    const preview = document.getElementById('video-preview');
+    const placeholder = document.getElementById('video-upload-placeholder');
+    const fileName = document.getElementById('fileName');
+    if (preview) preview.classList.add('hidden');
+    if (placeholder) placeholder.classList.remove('hidden');
+    if (fileName) fileName.textContent = 'Haz clic para buscar o arrastra el video';
 }
 
 async function initModelSelect() {
@@ -76,8 +136,8 @@ async function uploadVideo() {
         const data = await response.json();
         
         // Limpiamos el input después de iniciar la carga con éxito
-        fileInput.value = ''; 
-        document.getElementById('fileName').textContent = 'Haz clic para buscar o arrastra el video';
+        fileInput.value = '';
+        resetUploadUI();
 
         if (data.task_id) {
             pollTaskStatus(data.task_id);
@@ -88,7 +148,8 @@ async function uploadVideo() {
         alert('Error: ' + error.message);
         document.getElementById('loading').style.display = 'none';
         // Limpiamos en caso de error para permitir reintento
-        fileInput.value = ''; 
+        fileInput.value = '';
+        resetUploadUI();
     }
 }
 
@@ -190,6 +251,7 @@ function displayResults(result) {
 }
 
 function init() {
+    initVideoUpload();
     initModelSelect();
     initConfidenceSlider();
 }
