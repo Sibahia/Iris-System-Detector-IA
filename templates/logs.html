@@ -29,7 +29,7 @@
         </div>
     </header>
 
-    <main class="flex flex-col flex-1 relative z-10 px-grid-margin py-stack-xl mt-16 gap-10">
+    <main class="flex-1 relative z-10 px-grid-margin py-stack-xl mt-16">
         <header class="flex flex-col md:flex-row md:items-end justify-between gap-stack-lg mb-stack-xl">
             <div>
                 <h1 class="font-display-lg text-display-lg text-on-surface leading-none mb-2">Historial</h1>
@@ -38,7 +38,7 @@
             </div>
         </header>
 
-        <div class="flex-1 grid grid-cols-12 gap-grid-gutter">
+        <div class="grid grid-cols-12 gap-grid-gutter">
             <div class="col-span-12 glass-panel p-6 rounded-xl flex flex-wrap items-center gap-stack-md"
                 style="--mouse-x: 770px; --mouse-y: 94px;">
                 <div class="flex-1 min-w-[280px] relative">
@@ -103,17 +103,17 @@
                 </div>
             </div>
         </div>
-        <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
-            <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
-                <div class="flex flex-col md:flex-row items-center gap-4">
-                    <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
-                        <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
-                    </span>
-                    <p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Barrios D. Todos los derechos reservados.</p>
-                </div>
-            </div>
-        </footer>
     </main>
+    <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
+        <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
+            <div class="flex flex-col md:flex-row items-center gap-4">
+                <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
+                </span>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Barrios D. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
     <script src="static/js/logs.js"></script>
 </body>
 
