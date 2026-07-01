@@ -29,7 +29,8 @@ class LiveStreamDetector:
         self,
         source: any = 0,
         crowd_threshold: int = 3,
-        confidence: float = 0.5
+        confidence: float = 0.5,
+        model_path: Optional[str] = None,
     ):
         """
         Initialize live stream detector
@@ -38,10 +39,12 @@ class LiveStreamDetector:
             source: Camera index (0, 1, 2) or RTSP/HTTP URL
             crowd_threshold: People count to trigger alert
             confidence: Detection confidence threshold
+            model_path: Path to YOLO model file (optional, falls back to env)
         """
         self.source = source
         self.crowd_threshold = crowd_threshold
         self.confidence = confidence
+        self.model_path = model_path
         
         self.cap = None
         self.detector = None
@@ -84,6 +87,7 @@ class LiveStreamDetector:
             from detection.yolo_detector import YOLOAnomalyDetector
             self.detector = YOLOAnomalyDetector(
                 model_size="n",
+                model_path=self.model_path,
                 crowd_threshold=self.crowd_threshold,
                 confidence_threshold=self.confidence
             )
@@ -192,17 +196,20 @@ def create_stream(
     stream_id: str,
     source: any,
     crowd_threshold: int = 3,
-    confidence: float = 0.5
+    confidence: float = 0.5,
+    model_name: Optional[str] = None,
 ) -> LiveStreamDetector:
     """Create and start a new stream"""
     # Stop existing stream if any
     if stream_id in _streams:
         _streams[stream_id].stop()
     
+    model_path = os.path.join("models", model_name) if model_name else None
     stream = LiveStreamDetector(
         source=source,
         crowd_threshold=crowd_threshold,
-        confidence=confidence
+        confidence=confidence,
+        model_path=model_path,
     )
     
     _streams[stream_id] = stream

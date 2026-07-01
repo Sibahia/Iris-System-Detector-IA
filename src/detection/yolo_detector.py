@@ -50,6 +50,7 @@ class YOLOAnomalyDetector:
     def __init__(
         self,
         model_size: str = "s",
+        model_path: Optional[str] = None,
         confidence_threshold: Optional[float] = None,
         crowd_threshold: int = 5,
         loiter_threshold_seconds: float = 10.0,
@@ -71,7 +72,7 @@ class YOLOAnomalyDetector:
         self.loiter_threshold = loiter_threshold_seconds
         self.device = device
 
-        model_name = os.getenv("MODEL_NAME", f"yolo11{model_size}.pt")
+        model_name = model_path or os.getenv("MODEL_NAME", f"yolo11{model_size}.pt")
         print(f"Cargando modelo YOLO: {model_name}")
         self.model = YOLO(model_name)
 
@@ -466,6 +467,7 @@ _detector_instance = None
 
 def get_yolo_detector(
     model_size: str = "s",
+    model_path: Optional[str] = None,
     device: str = "cpu",
     confidence_threshold: Optional[float] = None,
     crowd_threshold: int = 5,
@@ -475,6 +477,7 @@ def get_yolo_detector(
     if _detector_instance is None:
         _detector_instance = YOLOAnomalyDetector(
             model_size=model_size,
+            model_path=model_path,
             device=device,
             confidence_threshold=confidence_threshold,
             crowd_threshold=crowd_threshold,

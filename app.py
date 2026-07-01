@@ -105,17 +105,20 @@ def run_analysis_task(
     crowd_threshold: int,
     confidence: float,
     original_filename: str,
+    model_name: Optional[str] = None,
 ):
     try:
-        from detection.yolo_detector import get_yolo_detector
+        from detection.yolo_detector import YOLOAnomalyDetector
 
         TASKS[task_id]["status"] = "processing"
 
         def update_progress(p):
             TASKS[task_id]["progress"] = p
 
-        yolo = get_yolo_detector(
+        model_path = os.path.join("models", model_name) if model_name else None
+        yolo = YOLOAnomalyDetector(
             model_size=MODEL_SIZE,
+            model_path=model_path,
             device=DEVICE,
             confidence_threshold=confidence,
             crowd_threshold=crowd_threshold,
@@ -287,9 +290,13 @@ async def analyze_yolo(
     file: UploadFile = File(...),
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
+    model_name: Optional[str] = Query(None),
 ):
     if not file.content_type.startswith("video/"):
         raise HTTPException(400, "File must be a video")
+
+    if model_name and model_name not in AVAILABLE_MODELS:
+        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     try:
@@ -315,6 +322,7 @@ async def analyze_yolo(
         crowd_threshold,
         confidence,
         file.filename,
+        model_name,
     )
 
     return {"task_id": task_id}
@@ -514,12 +522,18 @@ async def start_live_stream(data: dict):
     stream_id = data.get("stream_id", "main")
     source = data.get("source", 0)
     threshold = data.get("crowd_threshold", 3)
+    confidence = data.get("confidence", 0.5)
+    model_name = data.get("model_name")
+
+    if model_name and model_name not in AVAILABLE_MODELS:
+        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
 
     if isinstance(source, str) and source.isdigit():
         source = int(source)
 
     stream = create_stream(
-        stream_id=stream_id, source=source, crowd_threshold=threshold
+        stream_id=stream_id, source=source, crowd_threshold=threshold,
+        confidence=confidence, model_name=model_name,
     )
 
     success = stream.start()

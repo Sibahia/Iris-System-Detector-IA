@@ -14,6 +14,35 @@ function updateFileName(input) {
     }
 }
 
+async function initModelSelect() {
+    const select = document.getElementById('model-select');
+    if (!select) return;
+
+    try {
+        const resp = await fetch('/models');
+        const data = await resp.json();
+        data.models.forEach(function (m) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (m === data.default) opt.selected = true;
+            select.appendChild(opt);
+        });
+    } catch (e) {
+        select.innerHTML = '<option value="">Models unavailable</option>';
+    }
+}
+
+function initConfidenceSlider() {
+    const slider = document.getElementById('confidence-slider');
+    const valueDisplay = document.getElementById('confidence-value');
+    if (slider && valueDisplay) {
+        slider.addEventListener('input', function (e) {
+            valueDisplay.textContent = e.target.value;
+        });
+    }
+}
+
 async function uploadVideo() {
     const fileInput = document.getElementById('videoFile');
     const file = fileInput.files[0];
@@ -34,7 +63,12 @@ async function uploadVideo() {
 
     try {
         const threshold = document.getElementById('crowdThreshold').value;
-        const response = await fetch(`/analyze-yolo?crowd_threshold=${threshold}&confidence=0.3`, {
+        const confidence = document.getElementById('confidence-slider').value;
+        const modelSelect = document.getElementById('model-select');
+        const modelName = modelSelect ? modelSelect.value : '';
+        let url = `/analyze-yolo?crowd_threshold=${threshold}&confidence=${confidence}`;
+        if (modelName) url += '&model_name=' + encodeURIComponent(modelName);
+        const response = await fetch(url, {
             method: 'POST',
             body: formData
         });
@@ -132,4 +166,15 @@ function displayResults(result) {
     }
 
     document.getElementById('results').style.display = 'block';
+}
+
+function init() {
+    initModelSelect();
+    initConfidenceSlider();
+}
+
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+} else {
+    init();
 }

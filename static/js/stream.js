@@ -6,6 +6,34 @@ const sourceSelect = document.getElementById('sourceSelect');
 const cameraContainer = document.getElementById('cameraSelectContainer');
 const urlContainer = document.getElementById('urlInputContainer');
 const urlInput = document.getElementById('streamUrlInput');
+const modelSelect = document.getElementById('model-select');
+const confidenceSlider = document.getElementById('confidence-slider');
+const confidenceValue = document.getElementById('confidence-value');
+
+async function initModelSelect() {
+    if (!modelSelect) return;
+    try {
+        const resp = await fetch('/models');
+        const data = await resp.json();
+        data.models.forEach(function (m) {
+            const opt = document.createElement('option');
+            opt.value = m;
+            opt.textContent = m;
+            if (m === data.default) opt.selected = true;
+            modelSelect.appendChild(opt);
+        });
+    } catch (e) {
+        modelSelect.innerHTML = '<option value="">Models unavailable</option>';
+    }
+}
+
+function initConfidenceSlider() {
+    if (confidenceSlider && confidenceValue) {
+        confidenceSlider.addEventListener('input', function (e) {
+            confidenceValue.textContent = e.target.value;
+        });
+    }
+}
 
 sourceSelect.addEventListener('change', () => {
     const isWebcam = sourceSelect.value === 'webcam';
@@ -17,7 +45,9 @@ startBtn.addEventListener('click', async () => {
     if (!isStreaming) {
         const config = {
             source: sourceSelect.value === 'webcam' ? document.getElementById('cameraSelect').value : urlInput.value,
-            threshold: document.getElementById('sensitivitySelect').value
+            threshold: document.getElementById('sensitivitySelect').value,
+            confidence: confidenceSlider ? confidenceSlider.value : 0.5,
+            modelName: modelSelect ? modelSelect.value : '',
         };
 
         if (!config.source) {
@@ -37,14 +67,18 @@ async function startStream(config) {
     startBtn.innerHTML = 'Conectando...';
 
     try {
+        const body = {
+            stream_id: 'main',
+            source: config.source,
+            crowd_threshold: parseInt(config.threshold),
+            confidence: parseFloat(config.confidence),
+        };
+        if (config.modelName) body.model_name = config.modelName;
+
         const response = await fetch('/live/start', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                stream_id: 'main',
-                source: config.source,
-                crowd_threshold: parseInt(config.threshold)
-            })
+            body: JSON.stringify(body)
         });
 
         const data = await response.json();
@@ -89,3 +123,6 @@ async function updateStatus() {
         document.getElementById('metric-vehicles').textContent = data.vehicle_count || 0;
     } catch (e) { stopStream(); }
 }
+
+initModelSelect();
+initConfidenceSlider();
