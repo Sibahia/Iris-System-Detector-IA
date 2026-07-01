@@ -25,6 +25,12 @@ static/images/*
 # Logs
 *.log
 
+# Node
+node_modules/
+
+# Legacy CSS backup
+static/css/css-respaldo/
+
 # OS
 .DS_Store
 Thumbs.db
