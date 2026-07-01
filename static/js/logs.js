@@ -104,7 +104,7 @@ function renderPage() {
         }
     }
 
-    if (indicatorEl) indicatorEl.textContent = `${currentPage} / ${totalPages}`;
+    if (indicatorEl) indicatorEl.textContent = `Página ${currentPage} de ${totalPages}`;
     if (prevBtn) prevBtn.disabled = currentPage <= 1;
     if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
 }
