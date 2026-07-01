@@ -38,7 +38,7 @@
             </div>
         </header>
 
-        <div class="grid grid-cols-12 gap-grid-gutter">
+        <div class="grid grid-cols-12 gap-8">
             <div class="col-span-12 glass-panel p-6 rounded-xl flex flex-wrap items-center gap-stack-md"
                 style="--mouse-x: 770px; --mouse-y: 94px;">
                 <div class="flex-1 min-w-[280px] relative">
@@ -99,7 +99,12 @@
                     </table>
                 </div>
                 <div class="px-6 py-4 bg-white/5 flex items-center justify-between border-t border-white/5">
-                    <p class="font-label-sm text-label-sm text-on-surface-variant">Mostrando registros...</p>
+                    <p id="pagination-info" class="font-label-sm text-label-sm text-on-surface-variant"></p>
+                    <div class="flex items-center gap-2">
+                        <button id="prev-page" onclick="changePage(-1)" class="px-3 py-1 rounded-lg bg-white/10 text-on-surface text-sm hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">← Anterior</button>
+                        <span id="page-indicator" class="font-label-sm text-label-sm text-on-surface-variant px-2"></span>
+                        <button id="next-page" onclick="changePage(1)" class="px-3 py-1 rounded-lg bg-white/10 text-on-surface text-sm hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Siguiente →</button>
+                    </div>
                 </div>
             </div>
         </div>

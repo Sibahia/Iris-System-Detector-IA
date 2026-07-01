@@ -1,3 +1,7 @@
+const ITEMS_PER_PAGE = 10;
+let currentPage = 1;
+let allItems = [];
+
 async function loadHistory() {
     const tbody = document.getElementById('history-body');
     const loadingDiv = document.getElementById('history-loading');
@@ -14,28 +18,48 @@ async function loadHistory() {
 
     try {
         const response = await fetch(url);
-        const data = await response.json();
-        
-        if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 40px; color: var(--on-surface-variant);">No se encontraron registros</td></tr>';
-        } else {
-            tbody.innerHTML = data.map(v => {
-                const riskRate = Math.round((v.anomaly_rate || 0) * 100);
-                
-                let riskClass = "risk-low";
-                let riskLabel = "Bajo";
-                let rowClass = "hover:bg-white/5 transition-colors group"; 
+        allItems = await response.json();
+        currentPage = 1;
+        renderPage();
+    } catch (e) {
+        console.error("Error cargando historial:", e);
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--error);">Error al cargar el historial</td></tr>';
+    } finally {
+        if (loadingDiv) loadingDiv.style.display = 'none';
+    }
+}
 
-                if (riskRate > 50) { 
-                    riskClass = "risk-high"; 
-                    riskLabel = "Alto";
-                    rowClass += " bg-error-container/5"; 
-                } else if (riskRate > 25) { 
-                    riskClass = "risk-medium"; 
-                    riskLabel = "Medio"; 
-                }
+function renderPage() {
+    const tbody = document.getElementById('history-body');
+    const totalPages = Math.ceil(allItems.length / ITEMS_PER_PAGE) || 1;
 
-                return `
+    if (currentPage > totalPages) currentPage = totalPages;
+    if (currentPage < 1) currentPage = 1;
+
+    const start = (currentPage - 1) * ITEMS_PER_PAGE;
+    const end = start + ITEMS_PER_PAGE;
+    const pageItems = allItems.slice(start, end);
+
+    if (!allItems || allItems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--on-surface-variant);">No se encontraron registros</td></tr>';
+    } else {
+        tbody.innerHTML = pageItems.map(v => {
+            const riskRate = Math.round((v.anomaly_rate || 0) * 100);
+            
+            let riskClass = "risk-low";
+            let riskLabel = "Bajo";
+            let rowClass = "hover:bg-white/5 transition-colors group"; 
+
+            if (riskRate > 50) { 
+                riskClass = "risk-high"; 
+                riskLabel = "Alto";
+                rowClass += " bg-error-container/5"; 
+            } else if (riskRate > 25) { 
+                riskClass = "risk-medium"; 
+                riskLabel = "Medio"; 
+            }
+
+            return `
                 <tr class="${rowClass}">
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">#${v.id}</td>
                     <td class="px-6 py-4">
@@ -64,14 +88,30 @@ async function loadHistory() {
                         </div>
                     </td>
                 </tr>`;
-            }).join('');
-        }
-    } catch (e) {
-        console.error("Error cargando historial:", e);
-        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 20px; color: var(--error);">Error al cargar el historial</td></tr>';
-    } finally {
-        if (loadingDiv) loadingDiv.style.display = 'none';
+        }).join('');
     }
+
+    const infoEl = document.getElementById('pagination-info');
+    const indicatorEl = document.getElementById('page-indicator');
+    const prevBtn = document.getElementById('prev-page');
+    const nextBtn = document.getElementById('next-page');
+
+    if (infoEl) {
+        if (allItems.length === 0) {
+            infoEl.textContent = 'Mostrando 0 registros';
+        } else {
+            infoEl.textContent = `Mostrando ${start + 1}–${Math.min(end, allItems.length)} de ${allItems.length} registros`;
+        }
+    }
+
+    if (indicatorEl) indicatorEl.textContent = `${currentPage} / ${totalPages}`;
+    if (prevBtn) prevBtn.disabled = currentPage <= 1;
+    if (nextBtn) nextBtn.disabled = currentPage >= totalPages;
+}
+
+function changePage(delta) {
+    currentPage += delta;
+    renderPage();
 }
 
 async function viewVideo(videoId) {
@@ -99,6 +139,14 @@ async function deleteVideo(videoId) {
     }
 }
 
+function clearFilters() {
+    document.getElementById('search-filename').value = '';
+    document.getElementById('filter-rate').value = '';
+    currentPage = 1;
+    allItems = [];
+    loadHistory();
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     
@@ -108,9 +156,3 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearBtn = document.querySelector('button.bg-white\\/10');
     if(clearBtn) clearBtn.onclick = clearFilters;
 });
-
-function clearFilters() {
-    document.getElementById('search-filename').value = '';
-    document.getElementById('filter-rate').value = '';
-    loadHistory();
-}
