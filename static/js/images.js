@@ -225,7 +225,8 @@
 
   function updateStatusBadge(data) {
     const badge = document.getElementById('status-badge');
-    if (!badge) return;
+    const statusText = document.getElementById('status-text');
+    if (!badge || !statusText) return;
 
     var dot = badge.querySelector('span:first-child');
     if (!dot) return;
@@ -233,11 +234,11 @@
     if (data.is_anomaly) {
       badge.className = 'px-3 py-1 bg-red-500/10 text-red-400 text-label-sm rounded-full border border-red-500/20 flex items-center gap-1';
       dot.className = 'w-2 h-2 bg-red-400 rounded-full animate-pulse';
-      badge.childNodes[1].textContent = ' Anomalía detectada';
+      statusText.textContent = 'Anomalía detectada';
     } else {
       badge.className = 'px-3 py-1 bg-green-500/10 text-green-400 text-label-sm rounded-full border border-green-500/20 flex items-center gap-1';
       dot.className = 'w-2 h-2 bg-green-400 rounded-full animate-pulse';
-      badge.childNodes[1].textContent = ' Procesamiento completado — Normal';
+      statusText.textContent = 'Procesamiento completado — Normal';
     }
   }
 

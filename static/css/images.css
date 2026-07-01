@@ -1880,6 +1880,12 @@ body {
   color: #e2e2e4;
   font-family: 'Inter', sans-serif;
   overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+main {
+  flex: 1;
 }
 .glass-card {
   background: rgba(255, 255, 255, 0.04);
