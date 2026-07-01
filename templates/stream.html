@@ -21,7 +21,7 @@
     <main class="relative z-10 pt-32 pb-20 px-grid-margin max-w-7xl mx-auto">
         <div class="grid grid-cols-12 gap-grid-gutter">
             <section class="col-span-12 glass-card p-card-padding">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-stack-lg items-end">
+                <div class="grid grid-cols-1 md:grid-cols-5 gap-stack-lg items-end">
                     <div class="space-y-stack-sm">
                         <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Fuente de Video</label>
                         <select id="sourceSelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
@@ -32,7 +32,7 @@
                     </div>
 
                     <div class="space-y-stack-sm" id="cameraSelectContainer">
-                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Seleccionar Cámara</label>
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Cámara</label>
                         <select id="cameraSelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
                             <option value="0">Cámara 0 (Default)</option>
                             <option value="1">Cámara 1 (Externa)</option>
@@ -53,26 +53,25 @@
                         </div>
                     </div>
 
-                    <div class="space-y-stack-sm md:col-span-2 flex flex-col justify-between">
-                        <div class="flex justify-between items-center">
-                            <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Confidencia</label>
-                            <span id="confidence-value" class="text-label-sm text-primary font-bold">0.45</span>
-                        </div>
-                        <input id="confidence-slider" type="range" min="0.1" max="0.8" step="0.05" value="0.45"
-                            class="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary-container focus:outline-none">
-                        <div class="flex items-center gap-2 mt-2">
-                            <label class="font-label-sm text-label-sm text-on-surface/50 uppercase whitespace-nowrap">Multitud</label>
-                            <select id="sensitivitySelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-2 px-3 text-on-surface text-sm">
-                                <option value="3">3+ personas</option>
-                                <option value="2">2+ personas</option>
-                                <option value="5">5+ personas</option>
-                            </select>
-                        </div>
+                    <div class="space-y-stack-sm">
+                        <label class="font-label-sm text-label-sm text-on-surface/50 uppercase">Multitud</label>
+                        <select id="sensitivitySelect" class="w-full bg-surface-container-lowest border border-white/10 rounded-lg py-3 px-4 text-on-surface">
+                            <option value="3">3+ personas</option>
+                            <option value="2">2+ personas</option>
+                            <option value="5">5+ personas</option>
+                        </select>
                     </div>
 
-                    <button class="w-full bg-primary-container text-on-primary-fixed h-[50px] rounded-lg font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all orange-glow self-end" id="startMonitoring">
+                    <button class="w-full bg-primary-container text-on-primary-fixed h-[50px] rounded-lg font-bold flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all orange-glow" id="startMonitoring">
                         <span class="material-symbols-outlined">play_arrow</span> Iniciar Monitoreo
                     </button>
+                </div>
+
+                <div class="flex items-center gap-4 mt-stack-md pt-stack-md border-t border-white/10">
+                    <label class="font-label-sm text-label-sm text-on-surface/50 uppercase whitespace-nowrap">Confidencia</label>
+                    <span id="confidence-value" class="text-label-sm text-primary font-bold">0.45</span>
+                    <input id="confidence-slider" type="range" min="0.1" max="0.8" step="0.05" value="0.45"
+                        class="flex-1 h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary-container focus:outline-none">
                 </div>
             </section>
 
