@@ -141,6 +141,7 @@ def run_analysis_task(
             anomaly_flags=[r["is_anomaly"] for r in stats["frame_results"]],
             output_video_path=output_path,
             original_video_path=file_path,
+            model_name=model_name or "default",
         )
 
         if stats["anomaly_frames"] > 0:
@@ -191,7 +192,9 @@ def run_analysis_task(
             "processing_time": stats["processing_time"],
             "annotated_video_url": f"/static/videos/{os.path.basename(output_path)}",
             "risk_level": final_risk,
-            "risk_percentage": risk_percentage
+            "risk_percentage": risk_percentage,
+            "model_name": model_name or "default",
+            "class_counts": stats.get("class_counts", {})
         }
 
     except Exception as e:

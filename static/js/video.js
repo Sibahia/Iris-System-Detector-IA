@@ -156,7 +156,28 @@ function displayResults(result) {
             <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Armas</span>
             <div class="font-headline-lg text-headline-lg text-on-surface">${result.max_weapons_detected || 0}</div>
         </div>
+
+        <div class="glass-panel rounded-xl p-stack-md flex flex-col gap-1 glass-panel-hover transition-all">
+            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Modelo</span>
+            <div class="font-body-md text-body-md text-on-surface font-mono">${result.model_name || 'default'}</div>
+        </div>
     `;
+
+    const classContainer = document.getElementById('class-cards');
+    if (classContainer && result.class_counts) {
+        const entries = Object.entries(result.class_counts);
+        if (entries.length > 0) {
+            classContainer.style.display = 'grid';
+            classContainer.innerHTML = entries.map(([cls, count]) => `
+                <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
+                    <div class="font-headline-md text-headline-md text-on-surface mt-1">${count}</div>
+                </div>
+            `).join('');
+        } else {
+            classContainer.style.display = 'none';
+        }
+    }
 
     if (result.annotated_video_url) {
         const videoEl = document.getElementById('annotated-video');

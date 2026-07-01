@@ -71,6 +71,7 @@ class YOLOAnomalyDetector:
         self.crowd_threshold = crowd_threshold
         self.loiter_threshold = loiter_threshold_seconds
         self.device = device
+        self.model_path = model_path
 
         model_name = model_path or os.getenv("MODEL_NAME", f"yolo11{model_size}.pt")
         print(f"Cargando modelo YOLO: {model_name}")
@@ -398,6 +399,7 @@ class YOLOAnomalyDetector:
             "max_weapons": 0,
             "anomaly_types_count": defaultdict(int),
             "frame_results": [],
+            "class_counts": {},
         }
 
         start_time = time.time()
@@ -436,6 +438,11 @@ class YOLOAnomalyDetector:
             stats["max_people"] = max(stats["max_people"], results["person_count"])
             stats["max_weapons"] = max(stats["max_weapons"], results["weapon_count"])
 
+            if "all_boxes" in results:
+                for det in results["all_boxes"]:
+                    name = det["class_name"]
+                    stats["class_counts"][name] = stats["class_counts"].get(name, 0) + 1
+
             stats["frame_results"].append(
                 {
                     "frame": frame_num,
@@ -458,6 +465,7 @@ class YOLOAnomalyDetector:
             else 0
         )
         stats["anomaly_types_count"] = dict(stats["anomaly_types_count"])
+        stats["model_name"] = os.path.basename(self.model_path) if self.model_path else os.getenv("MODEL_NAME", "default")
 
         return stats
 

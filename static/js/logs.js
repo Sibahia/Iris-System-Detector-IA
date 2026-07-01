@@ -23,7 +23,7 @@ async function loadHistory() {
         renderPage();
     } catch (e) {
         console.error("Error cargando historial:", e);
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 20px; color: var(--error);">Error al cargar el historial</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px; color: var(--error);">Error al cargar el historial</td></tr>';
     } finally {
         if (loadingDiv) loadingDiv.style.display = 'none';
     }
@@ -41,7 +41,7 @@ function renderPage() {
     const pageItems = allItems.slice(start, end);
 
     if (!allItems || allItems.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 40px; color: var(--on-surface-variant);">No se encontraron registros</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 40px; color: var(--on-surface-variant);">No se encontraron registros</td></tr>';
     } else {
         tbody.innerHTML = pageItems.map(v => {
             const riskRate = Math.round((v.anomaly_rate || 0) * 100);
@@ -73,6 +73,7 @@ function renderPage() {
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${new Date(v.upload_time).toLocaleDateString()}</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${v.frame_count} f</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">0.${v.threshold_used}</td>
+                    <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant font-mono text-xs">${v.model_used || '—'}</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${v.anomaly_count} eventos</td>
                     <td class="px-6 py-4 text-center">
                         <span class="${riskClass} px-3 py-1 rounded-full text-xs font-bold inline-block">${riskRate}% ${riskLabel}</span>

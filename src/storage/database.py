@@ -80,6 +80,13 @@ def init_database():
         )
     ''')
     
+    # 4. Migrate: add model_used column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN model_used TEXT")
+        print("✅ Added model_used column to videos")
+    except sqlite3.OperationalError:
+        pass  # column already exists
+
     conn.commit()
     conn.close()
     print("✅ Database initialized successfully!")
@@ -100,7 +107,8 @@ def save_video_analysis(
     anomaly_flags: List[bool],
     output_video_path: Optional[str] = None,
     original_video_path: Optional[str] = None,
-    frame_bboxes: Optional[List[List[Dict]]] = None
+    frame_bboxes: Optional[List[List[Dict]]] = None,
+    model_name: Optional[str] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -113,12 +121,14 @@ def save_video_analysis(
         INSERT INTO videos (
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
-            original_video_path, avg_anomaly_score, max_anomaly_score
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            original_video_path, avg_anomaly_score, max_anomaly_score,
+            model_used
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
-        original_video_path, avg_score, max_score
+        original_video_path, avg_score, max_score,
+        model_name
     ))
     
     video_id = cursor.lastrowid

@@ -121,6 +121,23 @@ async function updateStatus() {
         document.getElementById('metric-fps').textContent = data.fps || 0;
         document.getElementById('metric-people').textContent = data.person_count || 0;
         document.getElementById('metric-vehicles').textContent = data.vehicle_count || 0;
+
+        const modelEl = document.getElementById('metric-model');
+        if (modelEl) modelEl.textContent = data.model_name || 'default';
+
+        const classContainer = document.getElementById('class-metrics');
+        if (classContainer && data.class_counts) {
+            const entries = Object.entries(data.class_counts);
+            if (entries.length > 0) {
+                classContainer.style.display = 'grid';
+                classContainer.innerHTML = entries.map(([cls, count]) => `
+                    <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
+                        <div class="font-headline-md text-headline-md text-on-surface mt-1">${count}</div>
+                    </div>
+                `).join('');
+            }
+        }
     } catch (e) { stopStream(); }
 }
 

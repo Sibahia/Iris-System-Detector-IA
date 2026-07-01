@@ -64,6 +64,7 @@ class LiveStreamDetector:
     def start(self) -> bool:
         """Start the video stream"""
         try:
+            self.model_name = os.path.basename(self.model_path) if self.model_path else "default"
             # Open video source with timeout settings
             if isinstance(self.source, int):
                 self.cap = cv2.VideoCapture(self.source)
@@ -135,6 +136,12 @@ class LiveStreamDetector:
             results["fps"] = round(avg_fps, 1)
             
             # Check for alert
+            class_counts = {}
+            for det in results.get("all_boxes", []):
+                name = det["class_name"]
+                class_counts[name] = class_counts.get(name, 0) + 1
+            results["class_counts"] = class_counts
+
             if results.get("is_anomaly") and self.alert_callback:
                 if current_time - self.last_alert_time > self.alert_cooldown:
                     self.alert_callback(results)
@@ -179,7 +186,9 @@ class LiveStreamDetector:
             "is_anomaly": self.current_results.get("is_anomaly", False),
             "person_count": self.current_results.get("person_count", 0),
             "vehicle_count": self.current_results.get("vehicle_count", 0),
-            "anomaly_types": self.current_results.get("anomaly_types", [])
+            "anomaly_types": self.current_results.get("anomaly_types", []),
+            "model_name": getattr(self, "model_name", "default"),
+            "class_counts": self.current_results.get("class_counts", {})
         }
 
 
