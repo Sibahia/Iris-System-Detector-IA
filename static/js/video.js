@@ -1,5 +1,31 @@
 let currentVideoUrl = null;
 
+function getVideoThumbnail(file, maxTime = 0.5) {
+    return new Promise((resolve) => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsinline = true;
+        video.preload = 'metadata';
+        video.src = URL.createObjectURL(file);
+        video.addEventListener('loadedmetadata', () => {
+            const seekTo = Math.min(maxTime, video.duration * 0.1 || 0.5);
+            video.currentTime = seekTo;
+        });
+        video.addEventListener('seeked', () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0);
+            URL.revokeObjectURL(video.src);
+            resolve(canvas.toDataURL('image/jpeg', 0.7));
+        });
+        video.addEventListener('error', () => {
+            URL.revokeObjectURL(video.src);
+            resolve('');
+        });
+    });
+}
+
 function initVideoUpload() {
     const dropzone = document.getElementById('video-dropzone');
     const fileInput = document.getElementById('videoFile');
@@ -15,10 +41,14 @@ function initVideoUpload() {
         const file = fileInput.files[0];
         if (!file) return;
         fileName.textContent = file.name;
-        const url = URL.createObjectURL(file);
-        preview.src = url;
-        preview.classList.remove('hidden');
-        placeholder.classList.add('hidden');
+        preview.src = '';
+        getVideoThumbnail(file).then(dataUrl => {
+            preview.src = dataUrl;
+            if (dataUrl) {
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            }
+        });
         document.getElementById('results').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
     });
@@ -52,10 +82,14 @@ function updateFileName(input) {
     
     if (input.files && input.files.length > 0) {
         display.textContent = input.files[0].name;
-        const url = URL.createObjectURL(input.files[0]);
-        preview.src = url;
-        preview.classList.remove('hidden');
-        placeholder.classList.add('hidden');
+        preview.src = '';
+        getVideoThumbnail(input.files[0]).then(dataUrl => {
+            preview.src = dataUrl;
+            if (dataUrl) {
+                preview.classList.remove('hidden');
+                placeholder.classList.add('hidden');
+            }
+        });
         document.getElementById('results').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
     } else {
