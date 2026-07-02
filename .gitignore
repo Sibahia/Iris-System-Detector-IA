@@ -19,10 +19,17 @@ email_config.json
 anomaly_history.db
 static/videos/*.avi
 static/videos/*.mp4
+static/images/*
 .env
 
 # Logs
 *.log
+
+# Node
+node_modules/
+
+# Legacy CSS backup
+static/css/css-respaldo/
 
 # OS
 .DS_Store

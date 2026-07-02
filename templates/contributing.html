@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html class="dark" lang="es" style="">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>Contribuidores</title>
+    <link rel="stylesheet" href="static/css/tailwind.css">
+    <link href="/static/fonts/fonts.css" rel="stylesheet">
+</head>
+<body class="bg-surface custom-scrollbar">
+    <div class="relative z-10 flex flex-col min-h-screen">
+
+        <header
+            class="sticky top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
+            <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
+                <h1 class="font-headline-md text-headline-md font-bold text-primary">{{SITE_TITLE}}</h1>
+            </div>
+            <div class="flex items-center gap-6">
+                <nav class="hidden md:flex gap-8">
+
+
+                </nav>
+                <a class="bg-primary-container text-on-primary-container font-label-md text-label-md px-8 py-2.5 rounded-full font-bold active:scale-95 duration-200 orange-glow flex items-center gap-2"
+                    href="/">
+                    <span class="material-symbols-outlined text-sm">home</span>
+                    Inicio
+                </a>
+            </div>
+        </header>
+
+        <main class="flex-1 flex flex-col items-center pt-16 pb-20 px-grid-margin">
+            <div class="max-w-6xl w-full">
+                <header class="mb-12 text-center">
+                    <h2 class="font-display-lg text-4xl md:text-display-lg text-on-surface mb-4">Contribuciones</h2>
+                    <p class="text-on-surface-variant/70 font-body-lg text-body-lg max-w-2xl mx-auto">Conoce los
+                        detalles técnicos, el origen y los créditos legales de este proyecto.</p>
+                </header>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6 auto-rows-[minmax(180px,auto)]">
+
+                    <div class="md:col-span-8 md:row-span-2 glass-card rounded-[32px] p-card-padding relative overflow-hidden flex flex-col justify-center"
+                        style="--mouse-x: 753px; --mouse-y: 371px;">
+                        <div class="absolute -top-24 -right-24 w-64 h-64 bg-primary/10 rounded-full blur-3xl"></div>
+                        <div class="relative z-10">
+                            <div class="flex items-center gap-4 mb-6">
+                                <div
+                                    class="w-12 h-12 rounded-xl bg-primary/20 flex items-center justify-center text-primary">
+                                    <span class="material-symbols-outlined">terminal</span>
+                                </div>
+                                <span class="text-label-md text-primary font-bold uppercase tracking-widest">Sobre el
+                                    Proyecto</span>
+                            </div>
+                            <p class="font-body-lg text-body-lg text-on-surface leading-relaxed mb-6">
+                                Hola, soy <span class="text-primary font-bold">Barrios D.</span> Este proyecto de
+                                {{SITE_TITLE}} es un <span class="italic text-on-surface">fork</span> desarrollado con el
+                                objetivo de optimizar la arquitectura técnica y elevar la experiencia visual.
+                            </p>
+                            <div class="p-6 bg-white/5 rounded-2xl border border-white/5">
+                                <p class="font-body-md text-body-md text-on-surface-variant/90 leading-relaxed">
+                                    Basado originalmente en el repositorio de <span
+                                        class="text-on-surface font-medium underline decoration-primary/40">saadkhan2003</span>,
+                                    el sistema ha sido modificado profundamente. Se implementó la estética <span
+                                        class="text-primary font-semibold">Lumina Glass</span> para ofrecer un entorno
+                                    de análisis profesional, fluido y altamente intuitivo.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <a class="md:col-span-4 glass-card rounded-[32px] p-8 flex flex-col justify-between group"
+                        href="https://github.com/saadkhan2003/CCTV_Video_Anomaly_Detection" target="_blank"
+                        style="--mouse-x: 16px; --mouse-y: 179.0333251953125px;">
+                        <div class="flex justify-between items-start">
+                            <div
+                                class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">folder_zip</span>
+                            </div>
+                            <span class="material-symbols-outlined text-on-surface-variant">open_in_new</span>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-md text-xl text-on-surface py-2">Repositorio Original</h3>
+                            <p class="text-label-md text-on-surface-variant/70 mb-4 line-clamp-2">CCTV Video Anomaly
+                                Detection by saadkhan2003</p>
+                            <div
+                                class="bg-primary-container text-on-primary-container py-3 rounded-xl font-bold text-center orange-glow">
+                                Ver Código Fuente
+                            </div>
+                        </div>
+                    </a>
+
+                    <a class="md:col-span-4 glass-card rounded-[32px] p-8 flex flex-col justify-between group" href="https://github.com/Sibahia/prueba-cctv-ia"
+                        style="--mouse-x: 138px; --mouse-y: 218px;">
+                        <div class="flex justify-between items-start">
+                            <div
+                                class="w-12 h-12 rounded-full bg-primary/20 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                                <span class="material-symbols-outlined">files</span>
+                            </div>
+                            <span class="material-symbols-outlined text-on-surface-variant">link</span>
+                        </div>
+                        <div>
+                            <h3 class="font-headline-md text-xl text-on-surface py-2">Mi Proyecto</h3>
+                            <p class="text-label-md text-on-surface-variant/70 mb-4">Explora mi repositorio observando elfork actualizado y las
+                                mejoras implementadas.</p>
+                            <div
+                                class="border border-primary/40 text-primary py-3 rounded-xl font-bold text-center group-hover:bg-primary/10 transition-colors">
+                                GitHub @Sibahia
+                            </div>
+                        </div>
+                    </a>
+
+                    <div class="md:col-span-12 glass-card rounded-[32px] p-8 flex flex-col md:flex-row items-center gap-8 bg-primary/[0.02]"
+                        style="--mouse-x: 873px; --mouse-y: 153.36669921875px;">
+                        <div class="w-16 h-16 rounded-2xl bg-white/5 flex-shrink-0 flex items-center justify-center">
+                            <span class="material-symbols-outlined text-primary text-3xl">gavel</span>
+                        </div>
+                        <div class="flex-1">
+                            <h3 class="font-headline-md text-xl text-on-surface mb-2">Información Legal</h3>
+                            <p class="text-body-md text-on-surface-variant/80">
+                                Este software se distribuye bajo la <span class="text-on-surface font-semibold">Apache
+                                    License Version 2.0, January 2004</span>.
+                                El uso de este fork está sujeto a los términos de la licencia original. Las
+                                modificaciones visuales son propiedad del desarrollador actual.
+                            </p>
+                        </div>
+                        <div class="flex gap-4">
+                            <div
+                                class="px-4 py-2 bg-white/5 rounded-lg border border-white/10 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                OSI Compliant</div>
+                            <div
+                                class="px-4 py-2 bg-white/5 rounded-lg border border-white/10 text-xs font-bold uppercase tracking-widest text-on-surface-variant">
+                                Apache 2.0</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
+            <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
+                <div class="flex flex-col md:flex-row items-center gap-4">
+                    <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
+                    </span>
+                    <p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Barrios D. Todos los derechos
+                        reservados.</p>
+                </div>
+            </div>
+        </footer>
+    </div>
+    <script src="static/js/contributing.js"></script>
+</body>
+</html>

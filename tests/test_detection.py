@@ -22,43 +22,41 @@ class TestYOLODetector:
         assert detector.confidence_threshold == 0.5
     
     def test_detect_objects_in_frame(self, detector):
-        """Test object detection in single frame"""
+        """Test object detection in single frame (without vehicles)"""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         
         results = detector.detect_objects(frame)
         
         assert isinstance(results, dict)
         assert "persons" in results
-        assert "vehicles" in results
         assert "weapons" in results
+        assert "vehicles" not in results 
     
     def test_crowd_detection(self, detector):
         """Test crowd anomaly detection using check_anomalies"""
         detections = {
             "persons": [{'class_id': 0, 'confidence': 0.9, 'center': (100, 100)}] * 6,
-            "vehicles": [],
             "weapons": []
         }
         
         anomalies = detector.check_anomalies(detections)
         assert anomalies["is_anomaly"] == True
-        assert "CROWD_GATHERING" in anomalies["anomaly_types"]
+        assert "AGLOMERACION_DE_PERSONAS" in anomalies["anomaly_types"]
     
     def test_weapon_detection(self, detector):
         """Test weapon detection"""
         detections = {
             "persons": [],
-            "vehicles": [],
             "weapons": [{'class_id': 43, 'class_name': 'knife', 'confidence': 0.8}]
         }
         
         anomalies = detector.check_anomalies(detections)
         assert anomalies["is_anomaly"] == True
-        assert "WEAPON_DETECTED" in anomalies["anomaly_types"]
-        assert anomalies["risk_level"] == "critical"
+        assert "ARMA_DETECTADA" in anomalies["anomaly_types"]
+        assert anomalies["risk_level"] in ["critico", "critical"]
 
     def test_singleton_factory(self):
         """Test that get_yolo_detector returns the same instance"""
         detector1 = get_yolo_detector(model_size='n')
         detector2 = get_yolo_detector(model_size='n')
-        assert detector1 is detector2 
+        assert detector1 is detector2

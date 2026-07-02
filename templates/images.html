@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html class="dark" lang="es" style="">
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{{SITE_TITLE}} - Analizar Imágenes</title>
+    <link rel="stylesheet" href="static/css/tailwind.css">
+    <link href="/static/fonts/fonts.css" rel="stylesheet">
+</head>
+<body class="dark bg-surface selection:bg-primary-container flex flex-col min-h-screen selection:text-on-primary-container">
+    <div class="bg-gradient-spot -top-48 -right-48"></div>
+    <div class="bg-gradient-spot bottom-0 -left-48 opacity-50"></div>
+    <header
+        class="fixed top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
+            <h1 class="font-headline-md text-headline-md font-bold text-primary">{{SITE_TITLE}}</h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <a class="bg-primary-container text-on-primary-container font-label-md text-label-md px-8 py-2.5 rounded-full font-bold active:scale-95 duration-200 orange-glow flex items-center gap-2" href="/">
+                <span class="material-symbols-outlined text-sm">home</span>
+                Inicio
+            </a>
+        </div>
+    </header>
+
+    <main class="flex-1 w-full pt-32 pb-stack-xl px-grid-margin max-w-[1600px] mx-auto">
+        <section class="mb-stack-xl">
+            <div class="flex flex-col gap-2 mb-stack-lg">
+                <h1 class="font-display-lg text-display-lg text-on-surface">Analizar Imágenes</h1>
+                <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+                    Soporta JPG, PNG, WEBP. Optimizado para clasificación y detección de objetos de alta precisión.
+                </p>
+            </div>
+
+            <div class="bento-grid">
+                <div id="dropzone-zone"
+                    class="col-span-12 lg:col-span-8 glass-card rounded-xl p-card-padding flex flex-col items-center justify-center min-h-[400px] border-dashed border-2 border-white/20 group cursor-pointer">
+                    <input type="file" id="image-input" accept="image/*" class="hidden">
+                    <div id="dropzone-content" class="flex flex-col items-center gap-stack-md text-center">
+                        <div
+                            class="w-20 h-20 rounded-full bg-primary-container/10 flex items-center justify-center group-hover:scale-110 transition-transform duration-500">
+                            <span class="material-symbols-outlined text-primary-container text-5xl">cloud_upload</span>
+                        </div>
+                        <div>
+                            <p id="dropzone-text" class="font-headline-md text-headline-md text-on-surface">HAZ CLIC PARA BUSCAR O ARRASTRA
+                                LA IMAGEN AQUÍ</p>
+                            <p id="file-info" class="font-label-md text-label-md text-on-surface-variant mt-2">Tamaño máximo de
+                                archivo: 25MB</p>
+                        </div>
+                        <img id="image-preview" class="hidden max-h-[200px] rounded-lg border border-white/10 mt-stack-md" src="">
+                    </div>
+                </div>
+
+                <div class="col-span-12 lg:col-span-4 glass-card rounded-xl p-card-padding flex flex-col justify-between">
+                    <div class="space-y-stack-lg">
+                        <h3 class="font-headline-md text-headline-md text-on-surface mb-stack-md">Ajustes de Parámetros</h3>
+                        <div class="flex flex-col gap-2">
+                            <label class="font-label-sm text-label-sm text-primary uppercase tracking-wider">Modelo de IA</label>
+                            <div class="relative group">
+                                <select id="model-select"
+                                    class="w-full bg-surface-container border-outline-variant text-on-surface rounded-lg py-3 px-4 appearance-none focus:ring-2 focus:ring-primary-container focus:border-transparent outline-none transition-all font-body-md pr-12">
+                                </select>
+                                <span class="material-symbols-outlined absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-on-surface-variant group-focus-within:text-primary transition-colors">expand_more</span>
+                            </div>
+                        </div>
+                        <div class="p-stack-md bg-white/5 rounded-lg border border-white/5 mt-stack-md">
+                            <h4 class="font-label-md text-label-md text-on-surface mb-2">Parámetros de Inferencia</h4>
+                            <div class="space-y-stack-sm">
+                                <div class="flex justify-between items-center">
+                                    <label for="confidence-slider" class="text-label-sm text-on-surface-variant">Confidencia</label>
+                                    <span id="confidence-value" class="text-label-sm text-primary font-bold">0.45</span>
+                                </div>
+                                <div class="relative flex items-center">
+                                    <input id="confidence-slider" type="range" min="0.1" max="0.8" step="0.05"
+                                        value="0.45"
+                                        class="w-full h-1.5 bg-white/10 rounded-full appearance-none cursor-pointer accent-primary-container focus:outline-none">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button id="analyze-btn"
+                        class="w-full mt-stack-xl bg-primary-container text-on-primary-container font-headline-md py-4 rounded-xl primary-glow transition-all active:scale-[0.98] flex items-center justify-center gap-2">
+                        <span class="material-symbols-outlined">play_arrow</span>
+                        Iniciar Análisis
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <div id="error-message" class="hidden mb-stack-lg p-stack-md bg-error-container/20 border border-error/30 rounded-xl text-error font-body-md"></div>
+
+        <section id="results-section" class="space-y-stack-lg hidden">
+            <div class="flex items-center justify-between border-b border-white/12 pb-4">
+                <h2 class="font-headline-lg text-headline-lg text-on-surface">Resultados del Análisis</h2>
+                <div class="flex gap-2">
+                    <span id="status-badge" class="px-3 py-1 bg-green-500/10 text-green-400 text-label-sm rounded-full border border-green-500/20 flex items-center gap-1">
+                        <span class="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                        <span id="status-text">Procesamiento completado</span>
+                    </span>
+                </div>
+            </div>
+
+            <div id="metrics-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-stack-lg"></div>
+
+            <div id="class-cards" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-stack-lg"></div>
+
+            <div class="glass-card rounded-2xl overflow-hidden p-stack-md relative min-h-[600px] flex items-center justify-center">
+                <div id="detections-overlay" class="absolute inset-0 z-10 pointer-events-none border-[20px] border-transparent"></div>
+                <div class="w-full h-full rounded-xl overflow-hidden">
+                    <img id="result-image" class="w-full h-full object-cover"
+                        data-alt="Imagen analizada"
+                        src="">
+                </div>
+                <div class="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 flex gap-4">
+                    <button id="zoom-btn" class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">zoom_in</span>
+                        Ampliar Detalle
+                    </button>
+                    <button id="export-json-btn" class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">download</span>
+                        Exportar JSON
+                    </button>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
+        <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
+            <div class="flex flex-col md:flex-row items-center gap-4">
+                <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
+                </span>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Barrios D. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="static/js/images.js"></script>
+</body>
+</html>
