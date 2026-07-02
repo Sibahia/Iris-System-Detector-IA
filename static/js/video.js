@@ -29,8 +29,6 @@ function getVideoThumbnail(file, maxTime = 0.5) {
 function initVideoUpload() {
     const dropzone = document.getElementById('video-dropzone');
     const fileInput = document.getElementById('videoFile');
-    const placeholder = document.getElementById('video-upload-placeholder');
-    const preview = document.getElementById('video-preview');
     const fileName = document.getElementById('fileName');
 
     if (!dropzone || !fileInput) return;
@@ -41,12 +39,11 @@ function initVideoUpload() {
         const file = fileInput.files[0];
         if (!file) return;
         fileName.textContent = file.name;
-        preview.src = '';
         getVideoThumbnail(file).then(dataUrl => {
-            preview.src = dataUrl;
             if (dataUrl) {
-                preview.classList.remove('hidden');
-                placeholder.classList.add('hidden');
+                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundSize = 'cover';
+                dropzone.style.backgroundPosition = 'center';
             }
         });
         document.getElementById('results').style.display = 'none';
@@ -77,34 +74,33 @@ function initVideoUpload() {
 
 function updateFileName(input) {
     const display = document.getElementById('fileName');
-    const preview = document.getElementById('video-preview');
-    const placeholder = document.getElementById('video-upload-placeholder');
+    const dropzone = document.getElementById('video-dropzone');
     
     if (input.files && input.files.length > 0) {
         display.textContent = input.files[0].name;
-        preview.src = '';
         getVideoThumbnail(input.files[0]).then(dataUrl => {
-            preview.src = dataUrl;
             if (dataUrl) {
-                preview.classList.remove('hidden');
-                placeholder.classList.add('hidden');
+                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundSize = 'cover';
+                dropzone.style.backgroundPosition = 'center';
             }
         });
         document.getElementById('results').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
     } else {
         display.textContent = 'Haz clic para buscar o arrastra el video';
-        preview.classList.add('hidden');
-        placeholder.classList.remove('hidden');
+        dropzone.style.backgroundImage = '';
     }
 }
 
 function resetUploadUI() {
-    const preview = document.getElementById('video-preview');
-    const placeholder = document.getElementById('video-upload-placeholder');
+    const dropzone = document.getElementById('video-dropzone');
     const fileName = document.getElementById('fileName');
-    if (preview) preview.classList.add('hidden');
-    if (placeholder) placeholder.classList.remove('hidden');
+    if (dropzone) {
+        dropzone.style.backgroundImage = '';
+        dropzone.style.backgroundSize = '';
+        dropzone.style.backgroundPosition = '';
+    }
     if (fileName) fileName.textContent = 'Haz clic para buscar o arrastra el video';
 }
 
