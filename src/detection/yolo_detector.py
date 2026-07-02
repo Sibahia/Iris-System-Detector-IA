@@ -439,8 +439,8 @@ class YOLOAnomalyDetector:
             stats["max_weapons"] = max(stats["max_weapons"], results["weapon_count"])
 
             if "all_boxes" in results:
-                for det in results["all_boxes"]:
-                    name = det["class_name"]
+                frame_classes = set(det["class_name"] for det in results["all_boxes"])
+                for name in frame_classes:
                     stats["class_counts"][name] = stats["class_counts"].get(name, 0) + 1
 
             stats["frame_results"].append(

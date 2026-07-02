@@ -161,8 +161,9 @@ class LiveStreamDetector:
                 self.anomaly_frame_count += 1
                 for at in results.get("anomaly_types", []):
                     self.anomaly_types_set.add(at)
-            for name, count in class_counts.items():
-                self.accumulated_class_counts[name] = self.accumulated_class_counts.get(name, 0) + count
+            frame_classes = set(det["class_name"] for det in results.get("all_boxes", []))
+            for name in frame_classes:
+                self.accumulated_class_counts[name] = self.accumulated_class_counts.get(name, 0) + 1
             self.fps_values.append(avg_fps)
 
             if results.get("is_anomaly") and self.alert_callback:

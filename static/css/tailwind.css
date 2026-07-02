@@ -389,6 +389,9 @@
   .my-stack-md {
     margin-block: var(--spacing-stack-md);
   }
+  .mt-0\.5 {
+    margin-top: calc(var(--spacing) * 0.5);
+  }
   .mt-1 {
     margin-top: var(--spacing);
   }
@@ -1371,6 +1374,12 @@
   }
   .text-on-surface-variant {
     color: var(--color-on-surface-variant);
+  }
+  .text-on-surface-variant\/60 {
+    color: color-mix(in srgb, #ddc1ae 60%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-on-surface-variant) 60%, transparent);
+    }
   }
   .text-on-surface-variant\/70 {
     color: color-mix(in srgb, #ddc1ae 70%, transparent);

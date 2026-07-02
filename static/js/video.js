@@ -263,6 +263,7 @@ function displayResults(result) {
                 <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
                     <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
                     <div class="font-headline-md text-headline-md text-on-surface mt-1">${count}</div>
+                    <span class="font-label-xs text-label-xs text-on-surface-variant/60 uppercase tracking-wider mt-0.5">frames</span>
                 </div>
             `).join('');
         } else {
