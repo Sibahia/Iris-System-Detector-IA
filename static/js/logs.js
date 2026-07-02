@@ -109,7 +109,7 @@ function renderPage() {
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${v.upload_time ? new Date(v.upload_time).toLocaleDateString() : '—'}</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${details}</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${thresholdDisplay}</td>
-                    <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant font-mono text-xs">${v.model_used || '—'}</td>
+                    <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant text-xs">${v.model_used || '—'}</td>
                     <td class="px-6 py-4 font-body-md text-body-md text-on-surface-variant">${v.anomaly_count || 0} ${type === 'image' ? 'eventos' : 'eventos'}</td>
                     <td class="px-6 py-4 text-center">
                         <span class="${riskClass} px-3 py-1 rounded-full text-xs font-bold inline-block">${riskRate}% ${riskLabel}</span>

@@ -120,7 +120,6 @@ async function updateStatus() {
         const data = await response.json();
         document.getElementById('metric-fps').textContent = data.fps || 0;
         document.getElementById('metric-people').textContent = data.person_count || 0;
-        document.getElementById('metric-vehicles').textContent = data.vehicle_count || 0;
 
         const modelEl = document.getElementById('metric-model');
         if (modelEl) modelEl.textContent = data.model_name || 'default';
