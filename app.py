@@ -444,6 +444,7 @@ async def analyze_image(
             risk_pct = 50
             
         raw_results["risk_percentage"] = risk_pct
+        raw_results["crowd_threshold"] = crowd_threshold
 
         return raw_results
 
