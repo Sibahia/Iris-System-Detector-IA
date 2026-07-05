@@ -14,62 +14,47 @@ graph TD
     classDef storage fill:#f59e0b,stroke:#b45309,color:#fff;
 
     %% Nodos de la Arquitectura
-    UI[Frontend: HTML / CSS / JS]:::frontend
-    API[FastAPI Backend]:::backend
-    
-    subgraph Módulos Internos [Núcleo del Servidor]
-        DET[Detection Module<br>YOLOv11 + OpenVINO]:::module
-        DB_MOD[Storage Module<br>SQLite Layer]:::module
-        ALT[Alerts Module<br>SMTP Protocol]:::module
+    UI[Frontend<br>8 Vistas HTML + JS/CSS]:::frontend
+    API[FastAPI Backend<br>app.py]:::backend
+
+    subgraph Core [Módulos de Detección]
+        VID[Video Detector<br>YOLOAnomalyDetector<br>YOLOv11 + OpenVINO + ByteTrack]:::module
+        IMG[Image Detector<br>YOLOImageDetector]:::module
+        LIVE[Live Stream<br>LiveStreamDetector<br>MJPEG]:::module
+        VIZ[Visualization<br>Autoencoder]:::module
     end
-    
+
+    subgraph Aux [Servicios Auxiliares]
+        ALT[Alerts Module<br>SMTP Email]:::module
+        DB_MOD[Storage Module<br>SQLite]:::module
+    end
+
     DB[(anomaly_history.db)]:::storage
+    MOD[(Modelos YOLO<br>best.pt / OpenVINO)]:::storage
 
     %% Flujos de datos y conexiones
-    UI <-->|HTTP Requests / WebSockets| API
-    API -->|Stream de Video / Frames| DET
-    API -->|Llamadas de Persistencia| DB_MOD
-    API -->|Disparador de Eventos| ALT
-    
-    DET -->|Resultados de Anomalías| API
-    DB_MOD <-->|Lectura y Escritura SQL| DB
+    UI <-->|HTTP / WebSockets| API
+
+    API -->|/analyze-yolo| VID
+    API -->|/analyze-image| IMG
+    API -->|/live/*| LIVE
+    API -->|/history / /statistics| DB_MOD
+    API -->|/configure-email| ALT
+
+    VID -->|Resultados| API
+    IMG -->|Resultados| API
+    LIVE -->|Resultados| API
+
+    VID -.->|Lee modelo| MOD
+    IMG -.->|Lee modelo| MOD
+    LIVE -.->|Lee modelo| MOD
+
+    DB_MOD <-->|CRUD| DB
 ```
 ---
 ## 📈 Diagramas del Sistema
 
-### 1. Diagrama de Arquitectura
-```mermaid
-flowchart TD
-    subgraph ENTRADA [ENTRADA]
-        I[Imágenes] --> P[Procesamiento]
-        V[Videos] --> P
-        C[Cámara] --> P
-    end
-
-    subgraph CONTROLADOR [Controlador]
-        subgraph IA [Inteligencia Artificial]
-            CP[Controlador Principal<br/>Python]
-            M[Modelo]
-            MI[Motor Inferencia]
-            D[Dataset]
-
-            CP --> M
-            D --> M
-            M --> MI
-        end
-    end
-
-    subgraph SALIDA [Salida]
-        MSG[Mensaje]
-        ALT[Alerta]
-        VIS[Visualizador]
-    end
-
-    P --> IA
-    CP --> SALIDA
-```
-
-### 2. Diagrama de Casos de Uso
+### 1. Diagrama de Casos de Uso
 ```mermaid
 graph LR
     subgraph Actores
@@ -100,7 +85,7 @@ graph LR
     Administrador --> Configurar
 ```
 
-### 3. Diagrama de Flujo: Captura de Objetos para Entrenamiento (Armas)
+### 2. Diagrama de Flujo: Captura de Objetos para Entrenamiento (Armas)
 ```mermaid
 flowchart TD
     Inicio([INICIO]) --> Iniciar[Iniciar N Cantidad de Entrenamiento]
@@ -121,7 +106,7 @@ flowchart TD
     Cumplido -- SI --> Fin([FIN])
 ```
 
-### 4. Diagrama de Flujo: Detección de Objetos en Producción (Armas)
+### 3. Diagrama de Flujo: Detección de Objetos en Producción (Armas)
 ```mermaid
 flowchart TD
     Inicio([INICIO]) --> Capturar[Capturar Frame]
@@ -140,7 +125,7 @@ flowchart TD
     Detectada --> Fin([FIN])
 ```
 
-### 5. Diagrama de Secuencia de Detección
+### 4. Diagrama de Secuencia de Detección
 ```mermaid
 sequenceDiagram
     participant Sistema as Sistema
