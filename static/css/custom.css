@@ -13,6 +13,8 @@ body {
   transform: translateZ(0);
   isolation: isolate;
   -webkit-backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 0.3s, background 0.3s, border 0.3s, box-shadow 0.3s;
 }
 .glass-panel:hover {
   background: rgba(255, 255, 255, 0.08);

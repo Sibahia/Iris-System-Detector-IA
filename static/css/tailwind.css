@@ -610,6 +610,9 @@
   .animate-spin {
     animation: var(--animate-spin);
   }
+  .cursor-not-allowed {
+    cursor: not-allowed;
+  }
   .cursor-pointer {
     cursor: pointer;
   }
@@ -865,12 +868,6 @@
       background-color: color-mix(in oklab, var(--color-black) 40%, transparent);
     }
   }
-  .bg-blue-400\/10 {
-    background-color: color-mix(in srgb, oklch(70.7% 0.165 254.624) 10%, transparent);
-    @supports (color: color-mix(in lab, red, red)) {
-      background-color: color-mix(in oklab, var(--color-blue-400) 10%, transparent);
-    }
-  }
   .bg-error-container\/5 {
     background-color: color-mix(in srgb, #93000a 5%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1010,6 +1007,12 @@
     background-color: color-mix(in srgb, #fff 10%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
       background-color: color-mix(in oklab, var(--color-white) 10%, transparent);
+    }
+  }
+  .bg-white\/\[0\.02\] {
+    background-color: color-mix(in srgb, #fff 2%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      background-color: color-mix(in oklab, var(--color-white) 2%, transparent);
     }
   }
   .bg-gradient-to-b {
@@ -1375,6 +1378,12 @@
   .text-on-surface-variant {
     color: var(--color-on-surface-variant);
   }
+  .text-on-surface-variant\/30 {
+    color: color-mix(in srgb, #ddc1ae 30%, transparent);
+    @supports (color: color-mix(in lab, red, red)) {
+      color: color-mix(in oklab, var(--color-on-surface-variant) 30%, transparent);
+    }
+  }
   .text-on-surface-variant\/60 {
     color: color-mix(in srgb, #ddc1ae 60%, transparent);
     @supports (color: color-mix(in lab, red, red)) {
@@ -1452,6 +1461,9 @@
   }
   .opacity-0 {
     opacity: 0%;
+  }
+  .opacity-35 {
+    opacity: 35%;
   }
   .opacity-50 {
     opacity: 50%;
@@ -1574,6 +1586,10 @@
   .outline-none {
     --tw-outline-style: none;
     outline-style: none;
+  }
+  .select-none {
+    -webkit-user-select: none;
+    user-select: none;
   }
   .group-focus-within\:text-primary {
     &:is(:where(.group):focus-within *) {
@@ -1797,9 +1813,9 @@
       opacity: 30%;
     }
   }
-  .sm\:grid-cols-2 {
+  .sm\:grid-cols-3 {
     @media (width >= 40rem) {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
   .md\:col-span-2 {
@@ -1860,11 +1876,6 @@
   .md\:grid-cols-2 {
     @media (width >= 48rem) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-  }
-  .md\:grid-cols-3 {
-    @media (width >= 48rem) {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
   .md\:grid-cols-4 {
@@ -1948,13 +1959,13 @@
       grid-template-columns: repeat(4, minmax(0, 1fr));
     }
   }
-  .lg\:grid-cols-6 {
+  .lg\:grid-cols-5 {
     @media (width >= 64rem) {
-      grid-template-columns: repeat(6, minmax(0, 1fr));
+      grid-template-columns: repeat(5, minmax(0, 1fr));
     }
   }
-  .xl\:grid-cols-6 {
-    @media (width >= 80rem) {
+  .lg\:grid-cols-6 {
+    @media (width >= 64rem) {
       grid-template-columns: repeat(6, minmax(0, 1fr));
     }
   }
@@ -1987,6 +1998,8 @@
     transform: translateZ(0);
     isolation: isolate;
     -webkit-backface-visibility: hidden;
+    will-change: transform;
+    transition: transform 0.3s, background 0.3s, border 0.3s, box-shadow 0.3s;
   }
   .glass-panel:hover {
     background: rgba(255, 255, 255, 0.08);
