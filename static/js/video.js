@@ -210,49 +210,68 @@ async function pollTaskStatus(taskId) {
 
 function displayResults(result) {
     const metricsDiv = document.getElementById('metrics');
-    
+
     const isCritico = result.risk_level === 'critico';
-    
-    const riskCardStyles = isCritico 
-        ? "border glass-risk-high text-on-surface-variant animate-pulse" 
-        : "border bg-primary-container/5 text-on-surface";
-        
-    const riskTextStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
 
-    metricsDiv.innerHTML = `
-        <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Frames</span>
-            <div class="font-headline-md text-headline-md text-on-surface">${result.total_frames || 0}</div>
-        </div>
+    const anomalyTypesCount = result.anomaly_types
+        ? Object.keys(result.anomaly_types).length
+        : 0;
 
-        <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Anomalías</span>
-            <div class="font-headline-md text-headline-md text-on-surface">${result.anomaly_frames || 0}</div>
-        </div>
-
-        <div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ${isCritico ? '' : 'glass-panel'} ${riskCardStyles}"
-             ${isCritico ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"' : ''}>
-            <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant'}">Nivel de Riesgo</span>
-            <div class="font-headline-md text-headline-md ${riskTextStyles}">
-                ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
+    function metricCard(label, value, blocked) {
+        if (blocked) {
+            return `
+                <div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">
+                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">
+                        <span class="material-symbols-outlined text-sm">lock</span> ${label}
+                    </span>
+                    <div class="text-on-surface-variant/30 text-label-sm font-medium">—</div>
+                </div>
+            `;
+        }
+        return `
+            <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
+                <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${label}</span>
+                <div class="font-headline-md text-headline-md text-on-surface">${value}</div>
             </div>
-        </div>
+        `;
+    }
 
-        <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Personas</span>
-            <div class="font-headline-md text-headline-md text-on-surface">${result.max_people_detected || 0}</div>
-        </div>
+    function riskCard() {
+        const styles = isCritico
+            ? "border glass-risk-high text-on-surface-variant animate-pulse"
+            : "border bg-primary-container/5 text-on-surface";
+        const textStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
+        const bgStyle = isCritico
+            ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"'
+            : '';
+        const labelClass = isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant';
 
-        <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition- text-center justify-center">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Máx. Armas</span>
-            <div class="font-headline-md text-headline-md text-on-surface">${result.max_weapons_detected || 0}</div>
-        </div>
+        return `
+            <div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ${isCritico ? '' : 'glass-panel'} ${styles}" ${bgStyle}>
+                <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${labelClass}">Nivel de Riesgo</span>
+                <div class="font-headline-md text-headline-md ${textStyles}">
+                    ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
+                </div>
+            </div>
+        `;
+    }
 
-        <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 glass-panel-hover transition-all text-center justify-center">
-            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Modelo</span>
-            <div class="font-body-md text-headline-md text-on-surface font-headline">${result.model_name || 'default'}</div>
-        </div>
-    `;
+    const cards = [
+        { label: 'Frames Totales', value: result.total_frames ?? 0, blocked: false },
+        { label: 'Frames Anómalos', value: result.anomaly_frames ?? 0, blocked: !result.anomaly_frames },
+        { label: 'Tasa Anomalías', value: (result.anomaly_rate != null ? (result.anomaly_rate * 100).toFixed(1) + '%' : '0%'), blocked: false },
+        { label: 'Máx. Personas', value: result.max_people_detected ?? 0, blocked: !result.max_people_detected },
+        { label: 'Máx. Armas', value: result.max_weapons_detected ?? 0, blocked: !result.max_weapons_detected },
+        { label: 'Máx. Vehículos', value: result.max_vehicles_detected ?? 0, blocked: !result.max_vehicles_detected },
+        { label: 'Tipos Anomalía', value: anomalyTypesCount, blocked: !anomalyTypesCount },
+        { label: 'Tiempo Proc.', value: (result.processing_time != null ? result.processing_time.toFixed(1) + 's' : '—'), blocked: false },
+        { label: 'Modelo', value: result.model_name || 'default', blocked: false },
+    ];
+
+    const riskHtml = riskCard();
+    const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
+
+    metricsDiv.innerHTML = metricHtml + riskHtml;
 
     const classContainer = document.getElementById('class-cards');
     if (classContainer && result.class_counts) {
