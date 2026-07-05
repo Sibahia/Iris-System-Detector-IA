@@ -14,38 +14,143 @@ graph TD
     classDef storage fill:#f59e0b,stroke:#b45309,color:#fff;
 
     %% Nodos de la Arquitectura
-    UI[Frontend: HTML / CSS / JS]:::frontend
-    API[FastAPI Backend]:::backend
-    
-    subgraph Módulos Internos [Núcleo del Servidor]
-        DET[Detection Module<br>YOLOv11 + OpenVINO]:::module
-        DB_MOD[Storage Module<br>SQLite Layer]:::module
-        ALT[Alerts Module<br>SMTP Protocol]:::module
+    UI[Frontend<br>8 Vistas HTML + JS/CSS]:::frontend
+    API[FastAPI Backend<br>app.py]:::backend
+
+    subgraph Core [Módulos de Detección]
+        VID[Video Detector<br>YOLOAnomalyDetector<br>YOLOv11 + OpenVINO + ByteTrack]:::module
+        IMG[Image Detector<br>YOLOImageDetector]:::module
+        LIVE[Live Stream<br>LiveStreamDetector<br>MJPEG]:::module
+        VIZ[Visualization<br>Autoencoder]:::module
     end
-    
+
+    subgraph Aux [Servicios Auxiliares]
+        ALT[Alerts Module<br>SMTP Email]:::module
+        DB_MOD[Storage Module<br>SQLite]:::module
+    end
+
     DB[(anomaly_history.db)]:::storage
+    MOD[(Modelos YOLO<br>best.pt / OpenVINO)]:::storage
 
     %% Flujos de datos y conexiones
-    UI <-->|HTTP Requests / WebSockets| API
-    API -->|Stream de Video / Frames| DET
-    API -->|Llamadas de Persistencia| DB_MOD
-    API -->|Disparador de Eventos| ALT
-    
-    DET -->|Resultados de Anomalías| API
-    DB_MOD <-->|Lectura y Escritura SQL| DB
+    UI <-->|HTTP / WebSockets| API
+
+    API -->|/analyze-yolo| VID
+    API -->|/analyze-image| IMG
+    API -->|/live/*| LIVE
+    API -->|/history / /statistics| DB_MOD
+    API -->|/configure-email| ALT
+
+    VID -->|Resultados| API
+    IMG -->|Resultados| API
+    LIVE -->|Resultados| API
+
+    VID -.->|Lee modelo| MOD
+    IMG -.->|Lee modelo| MOD
+    LIVE -.->|Lee modelo| MOD
+
+    DB_MOD <-->|CRUD| DB
 ```
 ---
 ## 📈 Diagramas del Sistema
 
-![Diagrama Arquitectura](diagramas/diagrama_arquitectura.png)
+### 1. Diagrama de Casos de Uso
+```mermaid
+graph LR
+    subgraph Actores
+        Operador((Operador))
+        Administrador((Administrador))
+    end
 
-![Diagrama Casos de Uso](diagramas/diagrama_casos_uso.png)
+    subgraph CCTV_IA_TEST [Sistema CCTV_IA_TEST]
+        Monitoreo(Monitoreo)
+        Visualizar(Visualizar Flujo de Video)
+        Detectar(Detectar Objetos)
+        RecibirAlerta(Recibir Alerta de Alarma)
+        
+        Entrenar(Entrenar Modelo)
+        Actualizar(Actualizar Modelo)
+        Configurar(Configurar Parámetros)
+        
+        Visualizar -.->|&lt;&lt;include&gt;&gt;| Detectar
+        Visualizar -.->|&lt;&lt;extend&gt;&gt;| RecibirAlerta
+    end
 
-![Diagrama Capturar Objetos](diagramas/diagrama_flujo_capturar_objetos.png)
+    Operador --> Monitoreo
+    Operador --> Visualizar
+    Operador --> RecibirAlerta
 
-![Diagrama Objetos](diagramas/diagrama_flujo_objetos.png)
+    Administrador --> Entrenar
+    Administrador --> Actualizar
+    Administrador --> Configurar
+```
 
-![Diagrama Secuencial](diagramas/diagrama_secuencial.png)
+### 2. Diagrama de Flujo: Captura de Objetos para Entrenamiento (Armas)
+```mermaid
+flowchart TD
+    Inicio([INICIO]) --> Iniciar[Iniciar N Cantidad de Entrenamiento]
+    Iniciar --> Cargar[Cargar N Cantidad de Imágenes]
+    Cargar --> Capturar[Capturar Frame de Imagen]
+    
+    Capturar --> EsArma{¿Es un Arma?}
+    EsArma -- NO --> Capturar
+    EsArma -- SI --> Confianza{¿Confianza > 0.5?}
+    
+    Confianza -- NO --> Capturar
+    Confianza -- SI --> Guardar[Guardar Resultado en Dataset]
+    
+    Guardar --> Guardado[Entrenamiento Guardado]
+    Guardado --> Cumplido{¿Entrenar N Cantidad<br/>Cumplido?}
+    
+    Cumplido -- NO --> Iniciar
+    Cumplido -- SI --> Fin([FIN])
+```
+
+### 3. Diagrama de Flujo: Detección de Objetos en Producción (Armas)
+```mermaid
+flowchart TD
+    Inicio([INICIO]) --> Capturar[Capturar Frame]
+    Capturar --> Valido{¿Frame Válido?}
+    
+    Valido -- NO --> Capturar
+    Valido -- SI --> Ejecutar[Ejecutar Modelo de Predicción]
+    
+    Ejecutar --> EsArma{¿Es un Arma?}
+    EsArma -- NO --> Capturar
+    EsArma -- SI --> Confianza{¿Confianza > 0.5?}
+    
+    Confianza -- NO --> Ejecutar
+    Confianza -- SI --> Detectada[\Arma Detectada/]
+    
+    Detectada --> Fin([FIN])
+```
+
+### 4. Diagrama de Secuencia de Detección
+```mermaid
+sequenceDiagram
+    participant Sistema as Sistema
+    participant Camara as Cámara/Video
+    participant Modelo as Modelo IA
+    participant Alerta as Alerta
+
+    Sistema->>Camara: Detectar fuente (Cámara/Stream)
+    Camara-->>Sistema: Fuente lista
+    Sistema->>Modelo: Inicializar modelo
+
+    loop Bucle de detección
+        Sistema->>Camara: Capturar frames
+        Camara-->>Sistema: Frame obtenido
+        Sistema->>Modelo: Analizar frames
+        
+        alt ¿Detecta arma?
+            Modelo-->>Sistema: Arma detectada
+            Note over Sistema: Trazar cuadro sobre detección
+            Sistema->>Alerta: Enviar alerta
+        else No detecta arma
+            Modelo-->>Sistema: Sin detección
+        end
+    end
+```
 ---
 
 ## 🛠️ Inicio Rápido
@@ -117,3 +222,47 @@ Para verificar que todo el sistema base e interfaces funcionen correctamente des
     - Deja los parámetros por defecto y haz clic en "Start Analysis".
 
     - Comprueba que el procesamiento avance en tiempo real y devuelva los recuadros de detección de anomalías sin errores en la consola.
+
+---
+
+## 🐳 Despliegue con Docker
+
+Este proyecto cuenta con soporte nativo para contenedores Docker mediante **Docker Compose**, lo que facilita su despliegue y actualización en cualquier entorno sin necesidad de configurar Python o instalar dependencias de sistema manualmente.
+
+### 📋 Pre-requisitos
+- **Docker** instalado y en ejecución.
+- **Docker Compose** instalado.
+
+### 🚀 Construir y Ejecutar el Contenedor
+Para levantar la aplicación por primera vez o después de realizar cambios en el código:
+```bash
+docker compose up -d --build
+```
+Este comando se encarga de:
+1. Descargar e instalar la imagen base con OpenCV y dependencias necesarias.
+2. Compilar e instalar los paquetes de `requirements.txt`.
+3. Iniciar el backend con FastAPI expuesto en el puerto `8000`.
+
+### 🔄 Cómo Actualizar el Contenedor (cctv_ia_test)
+Cuando realices cambios en el código base o actualices dependencias en `requirements.txt`, ejecuta el siguiente comando para reconstruir la imagen y reiniciar el contenedor de manera transparente:
+```bash
+docker compose up -d --build
+```
+*Esto detendrá el contenedor actual, reconstruirá únicamente las capas que hayan cambiado y levantará el nuevo contenedor en segundo plano.*
+
+### 🛑 Detener el Contenedor
+Para pausar o detener el servicio de forma limpia:
+```bash
+docker compose down
+```
+
+### 📂 Persistencia de Datos y Volúmenes
+El archivo `docker-compose.yml` mapea volúmenes clave para asegurar la persistencia y permitir cambios rápidos en el diseño sin reconstruir la imagen:
+
+| Origen (Host) | Destino (Contenedor) | Propósito |
+|---|---|---|
+| `./src/storage/anomaly_history.db` | `/app/src/storage/anomaly_history.db` | Historial de análisis persistente (SQLite) |
+| `./static` | `/app/static` | Almacenamiento de videos, fotos e inferencias procesadas |
+| `./templates` | `/app/templates` | Vistas HTML dinámicas para modificaciones en tiempo de diseño |
+
+---
