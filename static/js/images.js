@@ -196,6 +196,18 @@
     const allNames = data.model_classes || Object.keys(data.class_counts || {});
     const counts = data.class_counts || {};
 
+    function optimalGridCols(n, min, max) {
+        var best = max, bestScore = -Infinity;
+        for (var c = max; c >= min; c--) {
+            var rows = Math.ceil(n / c);
+            var fill = n / (c * rows);
+            var balance = Math.min(c, rows) / Math.max(c, rows);
+            var score = fill * 10 + balance;
+            if (score > bestScore) { bestScore = score; best = c; }
+        }
+        return best;
+    }
+    container.style.gridTemplateColumns = 'repeat(' + optimalGridCols(allNames.length, 2, 6) + ', minmax(0, 1fr))';
     container.innerHTML = allNames.map(function (cls) {
       const count = counts[cls] || 0;
       if (count === 0) {

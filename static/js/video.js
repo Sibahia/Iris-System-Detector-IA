@@ -282,7 +282,19 @@ function displayResults(result) {
         const allNames = result.model_classes || Object.keys(result.class_counts || {});
         const classCounts = result.class_counts || {};
 
+        function optimalGridCols(n, min, max) {
+            let best = max, bestScore = -Infinity;
+            for (let c = max; c >= min; c--) {
+                const rows = Math.ceil(n / c);
+                const fill = n / (c * rows);
+                const balance = Math.min(c, rows) / Math.max(c, rows);
+                const score = fill * 10 + balance;
+                if (score > bestScore) { bestScore = score; best = c; }
+            }
+            return best;
+        }
         classContainer.style.display = 'grid';
+        classContainer.style.gridTemplateColumns = `repeat(${optimalGridCols(allNames.length, 2, 6)}, minmax(0, 1fr))`;
         classContainer.innerHTML = allNames.map(cls => {
             const count = classCounts[cls] || 0;
             if (count === 0) {
