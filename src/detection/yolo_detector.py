@@ -8,7 +8,10 @@ from dotenv import load_dotenv
 import time
 import os
 
+from detection.class_mapper import classify_classes
+
 load_dotenv()
+
 
 class VideoWriter:
 
@@ -32,20 +35,6 @@ class VideoWriter:
 
 
 class YOLOAnomalyDetector:
-
-    PERSON_CLASS = 1
-    WEAPON_CLASSES = [0, 2, 3, 4, 5, 6, 7]
-    
-    CLASS_NAMES_MAP = {
-        0: "arma",
-        1: "persona",
-        2: "rifle",
-        3: "pistola",
-        4: "arma de fuego",
-        5: "cuchillo",
-        6: "armas",
-        7: "Cuchillo"
-    }
 
     def __init__(
         self,
@@ -101,6 +90,11 @@ class YOLOAnomalyDetector:
         else:
             print("✅ ¡Modelo YOLO cargado con éxito!")
 
+        mapping = classify_classes(self.model.names)
+        self.WEAPON_CLASSES = mapping["weapon_ids"]
+        self.PERSON_CLASSES = mapping["person_ids"]
+        self.model_class_names = mapping["class_names"]
+
         self.person_tracks: Dict[int, List[Tuple[float, float, float]]] = defaultdict(
             list
         )
@@ -134,9 +128,9 @@ class YOLOAnomalyDetector:
                 x1, y1, x2, y2 = map(int, xyxy)
 
                 if self.model.names and cls in self.model.names:
-                    resolved_name = self.CLASS_NAMES_MAP.get(cls, self.model.names[cls])
+                    resolved_name = self.model.names[cls]
                 else:
-                    resolved_name = self.CLASS_NAMES_MAP.get(cls, f"Clase {cls}")
+                    resolved_name = self.model_class_names.get(cls, f"Clase {cls}")
 
                 detection = {
                     "class_id": cls,
@@ -149,7 +143,7 @@ class YOLOAnomalyDetector:
 
                 detections["all_boxes"].append(detection)
 
-                if cls == self.PERSON_CLASS:
+                if cls in self.PERSON_CLASSES:
                     detections["persons"].append(detection)
                 elif cls in self.WEAPON_CLASSES:
                     detections["weapons"].append(detection)

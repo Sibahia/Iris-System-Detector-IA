@@ -279,7 +279,7 @@ function displayResults(result) {
 
     const classContainer = document.getElementById('class-cards');
     if (classContainer) {
-        const allNames = ['persona', 'arma', 'pistola', 'rifle', 'arma de fuego', 'cuchillo', 'armas', 'Cuchillo'];
+        const allNames = result.model_classes || Object.keys(result.class_counts || {});
         const classCounts = result.class_counts || {};
 
         classContainer.style.display = 'grid';

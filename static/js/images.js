@@ -193,7 +193,7 @@
     const container = document.getElementById('class-cards');
     if (!container) return;
 
-    const allNames = ['persona', 'arma', 'pistola', 'rifle', 'arma de fuego', 'cuchillo', 'armas', 'Cuchillo'];
+    const allNames = data.model_classes || Object.keys(data.class_counts || {});
     const counts = data.class_counts || {};
 
     container.innerHTML = allNames.map(function (cls) {

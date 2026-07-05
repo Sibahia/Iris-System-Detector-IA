@@ -5,6 +5,8 @@ from typing import Dict, Any, Optional
 import os
 import time
 
+from detection.class_mapper import classify_classes
+
 class YOLOImageDetector:
     def __init__(
         self,
@@ -40,17 +42,11 @@ class YOLOImageDetector:
                 print(f"Fallo OpenVINO (usando PyTorch de respaldo): {e}")
                 self.model = YOLO(model_path)
 
-        self.model_classes = self.model.names if self.model.names else {}
-
-    def _resolve_class_category(self, class_id: int, class_name: str) -> str:
-        """Determina la categoria analizando el nombre de la clase devuelta por el modelo."""
-        name_lower = class_name.lower()
-        if "person" in name_lower or "persona" in name_lower:
-            return "persona"
-        elif any(w in name_lower for w in ["weapon", "arma", "gun", "pistol", "rifle", "knife", "cuchillo", "fuego"]):
-            return "arma"
-        else:
-            return "objeto_general"
+        mapping = classify_classes(self.model.names)
+        self.WEAPON_CLASSES = mapping["weapon_ids"]
+        self.PERSON_CLASSES = mapping["person_ids"]
+        self.model_class_names = mapping["class_names"]
+        self.model_class_categories = mapping["categories"]
 
     def detect_and_analyze(self, frame: np.ndarray, conf_override: Optional[float] = None) -> Dict[str, Any]:
         """
@@ -82,8 +78,8 @@ class YOLOImageDetector:
                 xyxy = box.xyxy[0].cpu().numpy()
                 x1, y1, x2, y2 = map(int, xyxy)
 
-                raw_name = self.model_classes.get(cls, f"Clase_{cls}")
-                category = self._resolve_class_category(cls, raw_name)
+                raw_name = self.model_class_names.get(cls, f"Clase_{cls}")
+                category = self.model_class_categories.get(cls, "otro")
 
                 detection = {
                     "class_id": cls,

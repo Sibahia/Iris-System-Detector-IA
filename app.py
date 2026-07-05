@@ -198,7 +198,8 @@ def run_analysis_task(
             "risk_level": final_risk,
             "risk_percentage": risk_percentage,
             "model_name": model_name or "default",
-            "class_counts": stats.get("class_counts", {})
+            "class_counts": stats.get("class_counts", {}),
+            "model_classes": list(yolo.model_class_names.values()) if hasattr(yolo, 'model_class_names') else []
         }
 
     except Exception as e:
@@ -445,6 +446,7 @@ async def analyze_image(
             
         raw_results["risk_percentage"] = risk_pct
         raw_results["crowd_threshold"] = crowd_threshold
+        raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
 
         return raw_results
 
