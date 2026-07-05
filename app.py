@@ -191,7 +191,7 @@ def run_analysis_task(
             "anomaly_rate": stats["anomaly_rate"],
             "max_people_detected": stats["max_people"],
             "max_weapons_detected": stats["max_weapons"],
-            "max_vehicles_detected": 0,  
+            "crowd_threshold": crowd_threshold,
             "anomaly_types": stats["anomaly_types_count"],
             "processing_time": stats["processing_time"],
             "annotated_video_url": f"/static/videos/{os.path.basename(output_path)}",

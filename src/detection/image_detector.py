@@ -28,8 +28,9 @@ class YOLOImageDetector:
         # Optimizacion OpenVINO para CPU
         if device == "cpu":
             try:
+                model_dir = os.path.dirname(model_path) or "."
                 base_name = os.path.splitext(os.path.basename(model_path))[0]
-                openvino_path = f"{base_name}_openvino_model/"
+                openvino_path = os.path.join(model_dir, f"{base_name}_openvino_model/")
                 if not os.path.exists(openvino_path):
                     print(f"Optimizando {model_path} con OpenVINO...")
                     self.model.export(format="openvino")

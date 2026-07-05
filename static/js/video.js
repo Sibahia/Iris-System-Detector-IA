@@ -256,13 +256,17 @@ function displayResults(result) {
         `;
     }
 
+    const crowdThreshold = result.crowd_threshold ?? null;
+    const maxPeople = result.max_people_detected ?? 0;
+    const peopleExceeded = crowdThreshold !== null && maxPeople >= crowdThreshold;
+    const peopleValue = crowdThreshold !== null ? `${maxPeople} (umbral: ${crowdThreshold})` : String(maxPeople);
+
     const cards = [
         { label: 'Frames Totales', value: result.total_frames ?? 0, blocked: false },
         { label: 'Frames Anómalos', value: result.anomaly_frames ?? 0, blocked: !result.anomaly_frames },
         { label: 'Tasa Anomalías', value: (result.anomaly_rate != null ? (result.anomaly_rate * 100).toFixed(1) + '%' : '0%'), blocked: false },
-        { label: 'Máx. Personas', value: result.max_people_detected ?? 0, blocked: !result.max_people_detected },
+        { label: 'Máx. Personas', value: peopleValue, blocked: !peopleExceeded },
         { label: 'Máx. Armas', value: result.max_weapons_detected ?? 0, blocked: !result.max_weapons_detected },
-        { label: 'Máx. Vehículos', value: result.max_vehicles_detected ?? 0, blocked: !result.max_vehicles_detected },
         { label: 'Tipos Anomalía', value: anomalyTypesCount, blocked: !anomalyTypesCount },
         { label: 'Tiempo Proc.', value: (result.processing_time != null ? result.processing_time.toFixed(1) + 's' : '—'), blocked: false },
         { label: 'Modelo', value: result.model_name || 'default', blocked: false },
@@ -274,20 +278,31 @@ function displayResults(result) {
     metricsDiv.innerHTML = metricHtml + riskHtml;
 
     const classContainer = document.getElementById('class-cards');
-    if (classContainer && result.class_counts) {
-        const entries = Object.entries(result.class_counts);
-        if (entries.length > 0) {
-            classContainer.style.display = 'grid';
-            classContainer.innerHTML = entries.map(([cls, count]) => `
+    if (classContainer) {
+        const allNames = ['persona', 'arma', 'pistola', 'rifle', 'arma de fuego', 'cuchillo', 'armas', 'Cuchillo'];
+        const classCounts = result.class_counts || {};
+
+        classContainer.style.display = 'grid';
+        classContainer.innerHTML = allNames.map(cls => {
+            const count = classCounts[cls] || 0;
+            if (count === 0) {
+                return `
+                    <div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">
+                            <span class="material-symbols-outlined text-sm">lock</span> ${cls}
+                        </span>
+                        <div class="text-on-surface-variant/30 text-label-sm font-medium">—</div>
+                    </div>
+                `;
+            }
+            return `
                 <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
                     <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
                     <div class="font-headline-md text-headline-md text-on-surface mt-1">${count}</div>
                     <span class="font-label-xs text-label-xs text-on-surface-variant/60 uppercase tracking-wider mt-0.5">frames</span>
                 </div>
-            `).join('');
-        } else {
-            classContainer.style.display = 'none';
-        }
+            `;
+        }).join('');
     }
 
     if (result.annotated_video_url) {
