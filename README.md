@@ -62,7 +62,7 @@ graph LR
         Administrador((Administrador))
     end
 
-    subgraph CCTV_IA_TEST [Sistema CCTV_IA_TEST]
+    subgraph Iris_System [Sistema Iris System]
         Monitoreo(Monitoreo)
         Visualizar(Visualizar Flujo de Video)
         Detectar(Detectar Objetos)
