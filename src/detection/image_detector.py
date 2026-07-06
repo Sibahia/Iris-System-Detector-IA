@@ -5,7 +5,7 @@ from typing import Dict, Any, Optional
 import os
 import time
 
-from detection.class_mapper import classify_classes
+from .class_mapper import classify_classes
 
 class YOLOImageDetector:
     def __init__(

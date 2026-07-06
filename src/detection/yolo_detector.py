@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 import time
 import os
 
-from detection.class_mapper import classify_classes
+from .class_mapper import classify_classes
 
 load_dotenv()
 
