@@ -128,7 +128,19 @@ async function updateStatus() {
         if (classContainer && data.class_counts) {
             const entries = Object.entries(data.class_counts);
             if (entries.length > 0) {
+                function optimalGridCols(n, min, max) {
+                    let best = max, bestScore = -Infinity;
+                    for (let c = max; c >= min; c--) {
+                        const rows = Math.ceil(n / c);
+                        const fill = n / (c * rows);
+                        const balance = Math.min(c, rows) / Math.max(c, rows);
+                        const score = fill * 10 + balance;
+                        if (score > bestScore) { bestScore = score; best = c; }
+                    }
+                    return best;
+                }
                 classContainer.style.display = 'grid';
+                classContainer.style.gridTemplateColumns = `repeat(${optimalGridCols(entries.length, 2, 6)}, minmax(0, 1fr))`;
                 classContainer.innerHTML = entries.map(([cls, count]) => `
                     <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
                         <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>

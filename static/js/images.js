@@ -135,92 +135,111 @@
     showAnnotatedImage(data);
   }
 
+  function metricCard(label, value, blocked) {
+    if (blocked) {
+      return '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
+        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
+          '<span class="material-symbols-outlined text-sm">lock</span> ' + label +
+        '</span>' +
+        '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
+      '</div>';
+    }
+    return '<div class="glass-panel rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center">' +
+      '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">' + label + '</span>' +
+      '<div class="font-headline-md text-headline-md text-on-surface">' + value + '</div>' +
+    '</div>';
+  }
+
   function renderGlobalMetrics(data) {
     const grid = document.getElementById('metrics-grid');
     if (!grid) return;
 
-    const total = (data.persons_count || 0) + (data.weapons_count || 0) + (data.objects_count || 0);
+    const persons = data.persons_count || 0;
+    const weapons = data.weapons_count || 0;
+    const objects = data.objects_count || 0;
+    const total = persons + weapons + objects;
     const riskPct = data.risk_percentage || 0;
     const riskLevel = data.risk_level || 'normal';
     const time = data.processing_time_ms || 0;
     const model = data.model_used || '—';
 
-    let riskColor = 'text-green-400';
-    let riskBg = 'bg-green-500/10 border-green-500/20';
-    if (riskLevel === 'critico') {
-      riskColor = 'text-[#ffb4ab]';
-      riskBg = 'bg-error-container/20 border-error/30';
-    } else if (riskLevel === 'alto') {
-      riskColor = 'text-[#ffb77d]';
-      riskBg = 'bg-primary/10 border-primary/30';
-    } else if (riskLevel === 'medio') {
-      riskColor = 'text-[#ffb77d]';
-      riskBg = 'bg-primary/10 border-primary/30';
-    }
+    const isCritico = riskLevel === 'critico';
+    const styles = isCritico
+      ? 'border glass-risk-high text-on-surface-variant animate-pulse'
+      : 'border bg-primary-container/5 text-on-surface';
+    const textStyles = isCritico ? 'text-[#ffb4ab] font-bold' : 'text-[#ffb77d]';
+    const bgStyle = isCritico
+      ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"'
+      : '';
+    const labelClass = isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant';
 
-    grid.innerHTML =
-      '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">' +
-        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Total Detectado</span>' +
-        '<span class="font-display-lg text-headline-lg text-primary">' + total + '</span>' +
-      '</div>' +
-      '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + riskBg + '">' +
-        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Nivel de Riesgo</span>' +
-        '<span class="font-display-lg text-headline-lg ' + riskColor + '">' + riskPct + '% <span class="text-label-md uppercase">' + riskLevel + '</span></span>' +
-      '</div>' +
-      '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">' +
-        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Tiempo Inferencia</span>' +
-        '<span class="font-display-lg text-headline-lg text-primary">' + time + 'ms</span>' +
-      '</div>' +
-      '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1">' +
-        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Modelo Usado</span>' +
-        '<span class="font-display-lg text-headline-lg text-primary truncate" title="' + model + '">' + model + '</span>' +
-      '</div>';
+    const riskHtml = '<div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ' + (isCritico ? '' : 'glass-panel') + ' ' + styles + '" ' + bgStyle + '>' +
+      '<span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ' + labelClass + '">Nivel de Riesgo</span>' +
+      '<div class="font-headline-md text-headline-md ' + textStyles + '">' + riskPct + '% (' + riskLevel.toUpperCase() + ')</div>' +
+    '</div>';
+
+    const cards = [
+      { label: 'Total Detectado', value: total, blocked: false },
+    ];
+
+    grid.innerHTML = cards.map(function (c) { return metricCard(c.label, c.value, c.blocked); }).join('') + riskHtml +
+      metricCard('Tiempo Inferencia', time + 'ms', false) +
+      metricCard('Modelo Usado', model, false);
   }
 
   function renderClassCards(data) {
     const container = document.getElementById('class-cards');
     if (!container) return;
-    container.innerHTML = '';
 
-    const counts = data.class_counts;
-    if (!counts || Object.keys(counts).length === 0) {
-      container.classList.add('hidden');
-      return;
+    const allNames = data.model_classes || Object.keys(data.class_counts || {});
+    const counts = data.class_counts || {};
+
+    function optimalGridCols(n, min, max) {
+        var best = max, bestScore = -Infinity;
+        for (var c = max; c >= min; c--) {
+            var rows = Math.ceil(n / c);
+            var fill = n / (c * rows);
+            var balance = Math.min(c, rows) / Math.max(c, rows);
+            var score = fill * 10 + balance;
+            if (score > bestScore) { bestScore = score; best = c; }
+        }
+        return best;
     }
-    container.classList.remove('hidden');
+    container.style.gridTemplateColumns = 'repeat(' + optimalGridCols(allNames.length, 2, 6) + ', minmax(0, 1fr))';
+    container.innerHTML = allNames.map(function (cls) {
+      const count = counts[cls] || 0;
+      if (count === 0) {
+        return '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
+          '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
+            '<span class="material-symbols-outlined text-sm">lock</span> ' + cls +
+          '</span>' +
+          '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
+        '</div>';
+      }
 
-    var sorted = Object.keys(counts).sort();
-    for (var i = 0; i < sorted.length; i++) {
-      var cls = sorted[i];
-      var count = counts[cls];
       var nameLower = cls.toLowerCase();
-
       var borderColor = 'border-primary-container/30';
       var textColor = 'text-primary';
-      var bgColor = 'bg-primary-container/10';
       var icon = 'category';
 
       if (nameLower.indexOf('person') !== -1 || nameLower.indexOf('persona') !== -1) {
         borderColor = 'border-blue-400/30';
         textColor = 'text-blue-400';
-        bgColor = 'bg-blue-400/10';
         icon = 'person';
       } else if (nameLower.indexOf('knife') !== -1 || nameLower.indexOf('weapon') !== -1 || nameLower.indexOf('gun') !== -1 || nameLower.indexOf('pistol') !== -1 || nameLower.indexOf('rifle') !== -1 || nameLower.indexOf('arma') !== -1 || nameLower.indexOf('cuchillo') !== -1 || nameLower.indexOf('fuego') !== -1) {
         borderColor = 'border-red-500/30';
         textColor = 'text-red-500';
-        bgColor = 'bg-red-500/10';
         icon = 'warning';
       }
 
-      container.innerHTML +=
-        '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + borderColor + '">' +
-          '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center gap-2">' +
-            '<span class="material-symbols-outlined text-sm ' + textColor + '">' + icon + '</span>' +
-            cls +
-          '</span>' +
-          '<span class="font-display-lg text-headline-lg ' + textColor + '">' + count + '</span>' +
-        '</div>';
-    }
+      return '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + borderColor + '">' +
+        '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
+          '<span class="material-symbols-outlined text-sm ' + textColor + '">' + icon + '</span>' +
+          cls +
+        '</span>' +
+        '<span class="font-display-lg text-headline-lg ' + textColor + ' text-center">' + count + '</span>' +
+      '</div>';
+    }).join('');
   }
 
   function updateStatusBadge(data) {

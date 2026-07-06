@@ -10,11 +10,16 @@ body {
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  transform: translateZ(0);
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+  transition: transform 0.3s, background 0.3s, border 0.3s, box-shadow 0.3s;
 }
 .glass-panel:hover {
   background: rgba(255, 255, 255, 0.08);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 0 60px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 .glass-card {

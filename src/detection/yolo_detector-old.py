@@ -67,8 +67,9 @@ class YOLOAnomalyDetector:
 
         if device == "cpu":
             try:
+                model_dir = os.path.dirname(model_name) or "."
                 base_name = os.path.splitext(os.path.basename(model_name))[0]
-                openvino_path = f"{base_name}_openvino_model/"
+                openvino_path = os.path.join(model_dir, f"{base_name}_openvino_model/")
                 if not os.path.exists(openvino_path):
                     print(
                         "🚀 Exporting model to OpenVINO for 2-3x CPU speedup... (This takes ~1 min once)"

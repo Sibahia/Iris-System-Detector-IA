@@ -42,7 +42,7 @@
         </div>
 
         <div
-            class="glass-panel rounded-2xl p-6 w-full max-w-3xl flex flex-col items-center gap-4 glass-panel-hover transition-all duration-300">
+            class="glass-panel rounded-2xl p-6 w-full max-w-3xl flex flex-col items-center gap-4">
             <input type="file" id="videoFile" class="hidden" accept="video/*"
                 onclick="this.value = null;" autocomplete="off">
             <div id="video-dropzone"
@@ -113,14 +113,14 @@
         <div id="results" class="w-full space-y-stack-lg" style="display: none;">
     <h2 class="font-headline-md text-headline-md text-on-surface">Resultados del Análisis</h2>
     
-    <div id="metrics" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-stack-md w-full"></div>
-    
-    <div id="class-cards" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-stack-lg w-full"></div>
-    
     <div id="video-container"
         class="glass-panel rounded-2xl overflow-hidden relative w-full aspect-video border border-white/10 shadow-2xl">
         <video id="annotated-video" controls class="w-full h-full"></video>
     </div>
+    
+    <div id="metrics" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-stack-md w-full"></div>
+    
+    <div id="class-cards" class="grid gap-stack-lg w-full"></div>
 </div>
     </main>
 

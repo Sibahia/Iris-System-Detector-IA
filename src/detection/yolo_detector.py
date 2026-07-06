@@ -8,7 +8,10 @@ from dotenv import load_dotenv
 import time
 import os
 
+from .class_mapper import classify_classes
+
 load_dotenv()
+
 
 class VideoWriter:
 
@@ -33,20 +36,6 @@ class VideoWriter:
 
 class YOLOAnomalyDetector:
 
-    PERSON_CLASS = 1
-    WEAPON_CLASSES = [0, 2, 3, 4, 5, 6, 7]
-    
-    CLASS_NAMES_MAP = {
-        0: "arma",
-        1: "persona",
-        2: "rifle",
-        3: "pistola",
-        4: "arma de fuego",
-        5: "cuchillo",
-        6: "armas",
-        7: "Cuchillo"
-    }
-
     def __init__(
         self,
         model_size: str = "s",
@@ -57,15 +46,18 @@ class YOLOAnomalyDetector:
         device: str = "cpu",
     ):
         env_conf = os.getenv("CONFIDENCE_THRESHOLD")
-        if env_conf is not None:
+        if confidence_threshold is not None:
+            self.confidence_threshold = confidence_threshold
+            print(f"🔧 Usando CONFIDENCE_THRESHOLD desde parámetro: {self.confidence_threshold}")
+        elif env_conf is not None:
             try:
                 self.confidence_threshold = float(env_conf)
                 print(f"🔧 Usando CONFIDENCE_THRESHOLD desde .env: {self.confidence_threshold}")
             except ValueError:
                 print(f"⚠️ Valor inválido en .env para CONFIDENCE_THRESHOLD ('{env_conf}'). Usando fallback.")
-                self.confidence_threshold = confidence_threshold if confidence_threshold is not None else 0.5
+                self.confidence_threshold = 0.5
         else:
-            self.confidence_threshold = confidence_threshold if confidence_threshold is not None else 0.5
+            self.confidence_threshold = 0.5
             print(f"ℹ️ Variable CONFIDENCE_THRESHOLD no encontrada en .env. Usando valor por defecto: {self.confidence_threshold}")
 
         self.crowd_threshold = crowd_threshold
@@ -79,8 +71,9 @@ class YOLOAnomalyDetector:
 
         if device == "cpu":
             try:
+                model_dir = os.path.dirname(model_name) or "."
                 base_name = os.path.splitext(os.path.basename(model_name))[0]
-                openvino_path = f"{base_name}_openvino_model/"
+                openvino_path = os.path.join(model_dir, f"{base_name}_openvino_model/")
                 if not os.path.exists(openvino_path):
                     print(
                         "🚀 Exportando modelo a OpenVINO para aceleración en CPU... (Tarda ~1 min por única vez)"
@@ -96,6 +89,11 @@ class YOLOAnomalyDetector:
                 self.model = YOLO(model_name)
         else:
             print("✅ ¡Modelo YOLO cargado con éxito!")
+
+        mapping = classify_classes(self.model.names)
+        self.WEAPON_CLASSES = mapping["weapon_ids"]
+        self.PERSON_CLASSES = mapping["person_ids"]
+        self.model_class_names = mapping["class_names"]
 
         self.person_tracks: Dict[int, List[Tuple[float, float, float]]] = defaultdict(
             list
@@ -130,9 +128,9 @@ class YOLOAnomalyDetector:
                 x1, y1, x2, y2 = map(int, xyxy)
 
                 if self.model.names and cls in self.model.names:
-                    resolved_name = self.CLASS_NAMES_MAP.get(cls, self.model.names[cls])
+                    resolved_name = self.model.names[cls]
                 else:
-                    resolved_name = self.CLASS_NAMES_MAP.get(cls, f"Clase {cls}")
+                    resolved_name = self.model_class_names.get(cls, f"Clase {cls}")
 
                 detection = {
                     "class_id": cls,
@@ -145,7 +143,7 @@ class YOLOAnomalyDetector:
 
                 detections["all_boxes"].append(detection)
 
-                if cls == self.PERSON_CLASS:
+                if cls in self.PERSON_CLASSES:
                     detections["persons"].append(detection)
                 elif cls in self.WEAPON_CLASSES:
                     detections["weapons"].append(detection)
@@ -438,7 +436,7 @@ class YOLOAnomalyDetector:
             stats["max_people"] = max(stats["max_people"], results["person_count"])
             stats["max_weapons"] = max(stats["max_weapons"], results["weapon_count"])
 
-            if "all_boxes" in results:
+            if frame_num % 3 == 0 and "all_boxes" in results:
                 frame_classes = set(det["class_name"] for det in results["all_boxes"])
                 for name in frame_classes:
                     stats["class_counts"][name] = stats["class_counts"].get(name, 0) + 1
