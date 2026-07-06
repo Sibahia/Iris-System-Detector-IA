@@ -170,8 +170,8 @@ Sigue estos pasos en tu terminal para clonar el proyecto y preparar tu entorno d
 
 1. **Clonar el repositorio**
    ```bash
-   git clone [https://github.com/Sibahia/prueba-cctv-ia.git](https://github.com/Sibahia/prueba-cctv-ia)
-   cd prueba-cctv-ia
+   git clone https://github.com/Sibahia/Iris-System-Detector-IA.git
+   cd Iris-System-Detector-IA
    ```
 
 2. **Crear el entorno virtual (Altamente recomendado)**
