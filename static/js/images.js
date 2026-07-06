@@ -180,8 +180,6 @@
 
     const cards = [
       { label: 'Total Detectado', value: total, blocked: false },
-      { label: 'Personas', value: persons, blocked: !persons },
-      { label: 'Armas', value: weapons, blocked: !weapons },
     ];
 
     grid.innerHTML = cards.map(function (c) { return metricCard(c.label, c.value, c.blocked); }).join('') + riskHtml +

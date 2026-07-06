@@ -83,7 +83,7 @@ class YOLOImageDetector:
 
                 detection = {
                     "class_id": cls,
-                    "class_name": raw_name.upper(),
+                    "class_name": raw_name,
                     "confidence": conf,
                     "bbox": [x1, y1, x2, y2],
                     "center": ((x1 + x2) // 2, (y1 + y2) // 2),
