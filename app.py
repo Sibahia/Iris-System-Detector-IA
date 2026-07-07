@@ -280,13 +280,6 @@ async def view_logs():
         content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
         return HTMLResponse(content=content)
     
-@app.get("/video-base", response_class=HTMLResponse)
-async def view_video_base():
-    template_path = os.path.join(TEMPLATES_DIR, "video-base.html")
-    with open(template_path, "r", encoding="utf-8") as f:
-        content = f.read().replace("{{SITE_TITLE}}", SITE_TITLE)
-        return HTMLResponse(content=content)
-
 @app.get("/video-analysis", response_class=HTMLResponse)
 async def view_video_analysis():
     template_path = os.path.join(TEMPLATES_DIR, "video.html")
