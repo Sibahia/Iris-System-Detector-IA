@@ -3,11 +3,13 @@ import sys
 import tempfile
 import time
 import uuid
+import json
+from datetime import datetime
 from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -25,6 +27,8 @@ CROWD_THRESHOLD = int(os.getenv("CROWD_THRESHOLD", "5"))
 LOITER_THRESHOLD = float(os.getenv("LOITER_THRESHOLD", "10.0"))
 EMAIL_CONFIG = env_value in ("true", "1", "yes")
 SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "500"))
+MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
@@ -47,7 +51,21 @@ from storage.database import (
     delete_stream,
 )
 
-logging.basicConfig(level=logging.INFO)
+class JSONFormatter(logging.Formatter):
+    def format(self, record):
+        log_obj = {
+            "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.") + "Z",
+            "level": record.levelname,
+            "logger": record.name,
+            "message": record.getMessage(),
+        }
+        if record.exc_info and record.exc_info[0]:
+            log_obj["exception"] = self.formatException(record.exc_info)
+        return json.dumps(log_obj)
+
+handler = logging.StreamHandler()
+handler.setFormatter(JSONFormatter())
+logging.basicConfig(level=logging.INFO, handlers=[handler])
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -97,6 +115,31 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
+    request.state.correlation_id = correlation_id
+    response = await call_next(request)
+    response.headers["X-Correlation-ID"] = correlation_id
+    logger.info(json.dumps({
+        "correlation_id": correlation_id,
+        "method": request.method,
+        "path": request.url.path,
+        "status": response.status_code,
+    }))
+    return response
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    error_id = str(uuid.uuid4())
+    logger.error(f"Unhandled error {error_id}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Ocurrió un error. Reporte el código: {error_id}"}
+    )
+
 
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
@@ -275,7 +318,41 @@ async def view_contributors():
 
 @app.get("/health")
 async def health():
-    return {"status": "healthy", "version": "4.0.0"}
+    import shutil
+    from storage.database import get_connection
+
+    health_status = {
+        "status": "healthy",
+        "version": app.version,
+        "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.") + "Z",
+        "checks": {}
+    }
+
+    try:
+        conn = get_connection()
+        conn.execute("SELECT 1")
+        conn.close()
+        health_status["checks"]["database"] = "ok"
+    except Exception:
+        health_status["checks"]["database"] = "error"
+        health_status["status"] = "degraded"
+
+    try:
+        usage = shutil.disk_usage(BASE_DIR)
+        free_gb = usage.free / (1024 ** 3)
+        health_status["checks"]["disk_free_gb"] = round(free_gb, 1)
+        if usage.free / usage.total < 0.1:
+            health_status["status"] = "degraded"
+    except Exception:
+        health_status["checks"]["disk"] = "unknown"
+
+    missing = [m for m in AVAILABLE_MODELS if not os.path.exists(os.path.join(MODELS_DIR, m))]
+    health_status["checks"]["models"] = "ok" if not missing else f"missing: {missing}"
+    if missing:
+        health_status["status"] = "degraded"
+
+    status_code = 200 if health_status["status"] == "healthy" else 503
+    return JSONResponse(content=health_status, status_code=status_code)
 
 
 # =====================================================================
@@ -306,12 +383,20 @@ async def analyze_yolo(
     if model_name and model_name not in AVAILABLE_MODELS:
         raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
 
+    safe_filename = os.path.basename(file.filename or "video.mp4")
+
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     try:
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            temp.close()
+            os.unlink(temp.name)
+            raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
         temp.write(content)
         temp.close()
         temp_path = temp.name
+    except HTTPException:
+        raise
     except:
         temp.close()
         raise HTTPException(500, "Failed to save file")
@@ -329,7 +414,7 @@ async def analyze_yolo(
         output_path,
         crowd_threshold,
         confidence,
-        file.filename,
+        safe_filename,
         model_name,
     )
 
@@ -399,12 +484,19 @@ async def analyze_image(
     model_path = os.path.join("models", selected_model)
 
     # Guardar archivo de entrada temporalmente
-    ext = os.path.splitext(file.filename)[1] or ".jpg"
+    safe_filename = os.path.basename(file.filename or "image.jpg")
+    ext = os.path.splitext(safe_filename)[1] or ".jpg"
     temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
     try:
         content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            temp_input.close()
+            os.unlink(temp_input.name)
+            raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
         temp_input.write(content)
         temp_input.close()
+    except HTTPException:
+        raise
     except:
         temp_input.close()
         raise HTTPException(500, "Failed to save uploaded image")
