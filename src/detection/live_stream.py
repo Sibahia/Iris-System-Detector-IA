@@ -4,6 +4,7 @@ Live Stream Module for Real-time Anomaly Detection
 Supports: Webcam, USB cameras, iPhone (via apps), IP cameras (RTSP)
 """
 
+import os
 import cv2
 import numpy as np
 import time

@@ -1,5 +1,6 @@
 services:
   app:
+    container_name: iris-system-detector-ia
     build: .
     ports:
       - "${PORT:-8000}:8000"
