@@ -431,7 +431,7 @@ async def get_logs(
 
 @app.get("/terminal-logs")
 async def terminal_logs_page():
-    with open(os.path.join(TEMPLATES_DIR, "terminal_logs.html")) as f:
+    with open(os.path.join(TEMPLATES_DIR, "terminal_logs.html"), encoding="utf-8") as f:
         content = f.read()
     return HTMLResponse(content.replace("{{SITE_TITLE}}", SITE_TITLE))
 
@@ -811,7 +811,7 @@ async def email_status():
 @app.get("/live", response_class=HTMLResponse)
 async def live_page():
     template_path = os.path.join(TEMPLATES_DIR, "live.html")
-    with open(template_path, "r") as f:
+    with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 
