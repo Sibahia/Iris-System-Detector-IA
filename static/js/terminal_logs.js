@@ -35,7 +35,7 @@ async function loadLogs() {
         renderPage(total);
     } catch (e) {
         console.error("Error cargando logs:", e);
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-error">Error al cargar logs</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-error">Error al cargar logs</td></tr>';
     }
 }
 
@@ -51,11 +51,12 @@ function renderPage(total) {
     const pageItems = allLogs.slice(start, end);
 
     if (!allLogs || allLogs.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="5" class="text-center p-8 text-on-surface-variant">No hay logs disponibles</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" class="text-center p-8 text-on-surface-variant">No hay logs disponibles</td></tr>';
     } else {
-        tbody.innerHTML = pageItems.map(function (log) {
+        tbody.innerHTML = pageItems.map(function (log, i) {
             const levelColor = LEVEL_COLORS[log.level] || 'text-on-surface';
             const levelBg = LEVEL_BG[log.level] || '';
+            var idx = start + i;
 
             return '<tr class="hover:bg-white/5 transition-colors group font-mono text-sm">' +
                 '<td class="px-6 py-3 text-on-surface-variant whitespace-nowrap">' + (log.timestamp || '--') + '</td>' +
@@ -63,6 +64,7 @@ function renderPage(total) {
                 '<td class="px-6 py-3 text-on-surface-variant text-xs">' + (log.logger || log.module || '--') + '</td>' +
                 '<td class="px-6 py-3 text-on-surface max-w-xl truncate" title="' + escapeHtml(log.message) + '">' + escapeHtml(log.message) + '</td>' +
                 '<td class="px-6 py-3 text-on-surface-variant text-xs text-center">' + (log.line || '--') + '</td>' +
+                '<td class="px-6 py-3 text-center"><button onclick="openJsonModal(' + idx + ')" class="text-xs px-2 py-1 rounded bg-white/10 hover:bg-primary-container/30 hover:text-primary-container transition-colors font-mono" title="Ver JSON completo">{ }</button></td>' +
                 '</tr>';
         }).join('');
     }
@@ -102,6 +104,31 @@ function escapeHtml(text) {
     var div = document.createElement('div');
     div.appendChild(document.createTextNode(text));
     return div.innerHTML;
+}
+
+function syntaxHighlight(json) {
+    return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+        .replace(/:(\s*)"([^"]*)"/g, ':<span class="json-string">"$2"</span>')
+        .replace(/:(\s*)(\d+(?:\.\d+)?)/g, ':<span class="json-number">$2</span>')
+        .replace(/:(\s*)(true|false)/g, ':<span class="json-boolean">$2</span>')
+        .replace(/:(\s*)(null)/g, ':<span class="json-null">$2</span>');
+}
+
+function openJsonModal(index) {
+    var log = allLogs[index];
+    if (!log) return;
+    var formatted = JSON.stringify(log, null, 2);
+    document.getElementById('json-viewer').innerHTML = syntaxHighlight(formatted);
+    var modal = document.getElementById('json-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeJsonModal() {
+    var modal = document.getElementById('json-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
 }
 
 function initAutoRefresh() {
@@ -146,6 +173,12 @@ function init() {
     loadLogs();
     initAutoRefresh();
     initCopyLogs();
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') closeJsonModal();
+    });
+
+    document.getElementById('json-modal').addEventListener('click', closeJsonModal);
 
     var filterSelect = document.getElementById('filter-level');
     if (filterSelect) filterSelect.addEventListener('change', loadLogs);

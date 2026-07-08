@@ -188,12 +188,14 @@ async def correlation_id_middleware(request: Request, call_next):
     request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
-    logger.info(json.dumps({
-        "correlation_id": correlation_id,
-        "method": request.method,
-        "path": request.url.path,
-        "status": response.status_code,
-    }))
+    path = request.url.path
+    if path not in ("/api/logs",) and not path.startswith("/static/"):
+        logger.info(json.dumps({
+            "correlation_id": correlation_id,
+            "method": request.method,
+            "path": path,
+            "status": response.status_code,
+        }))
     return response
 
 
