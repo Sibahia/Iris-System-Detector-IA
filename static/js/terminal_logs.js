@@ -118,7 +118,9 @@ function syntaxHighlight(json) {
 function openJsonModal(index) {
     var log = allLogs[index];
     if (!log) return;
-    var formatted = JSON.stringify(log, null, 2);
+    var displayLog = Object.assign({}, log);
+    try { displayLog.message = JSON.parse(displayLog.message); } catch (e) {}
+    var formatted = JSON.stringify(displayLog, null, 2);
     document.getElementById('json-viewer').innerHTML = syntaxHighlight(formatted);
     var modal = document.getElementById('json-modal');
     modal.classList.remove('hidden');
@@ -129,6 +131,20 @@ function closeJsonModal() {
     var modal = document.getElementById('json-modal');
     modal.classList.add('hidden');
     modal.classList.remove('flex');
+}
+
+function copyJsonFromModal() {
+    var text = document.getElementById('json-viewer').textContent;
+    if (!text) return;
+    var btn = document.getElementById('copy-json-btn');
+    navigator.clipboard.writeText(text).then(function () {
+        if (!btn) return;
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span> Copiado';
+        setTimeout(function () { btn.innerHTML = orig; }, 2000);
+    }).catch(function () {
+        alert('No se pudo copiar al portapapeles');
+    });
 }
 
 function initAutoRefresh() {
