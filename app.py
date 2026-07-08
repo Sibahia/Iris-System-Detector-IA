@@ -51,6 +51,8 @@ from storage.database import (
     delete_stream,
 )
 
+from logs.memory_handler import MemoryLogHandler
+
 class JSONFormatter(logging.Formatter):
     def format(self, record):
         log_obj = {
@@ -66,6 +68,11 @@ class JSONFormatter(logging.Formatter):
 handler = logging.StreamHandler()
 handler.setFormatter(JSONFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+memory_log_handler = MemoryLogHandler(capacity=500)
+memory_log_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(memory_log_handler)
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -411,6 +418,22 @@ async def health():
 
     status_code = 200 if health_status["status"] == "healthy" else 503
     return JSONResponse(content=health_status, status_code=status_code)
+
+
+@app.get("/api/logs")
+async def get_logs(
+    level: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    return memory_log_handler.get_logs(level=level, limit=limit, offset=offset)
+
+
+@app.get("/terminal-logs")
+async def terminal_logs_page():
+    with open(os.path.join(TEMPLATES_DIR, "terminal_logs.html")) as f:
+        content = f.read()
+    return HTMLResponse(content.replace("{{SITE_TITLE}}", SITE_TITLE))
 
 
 # =====================================================================

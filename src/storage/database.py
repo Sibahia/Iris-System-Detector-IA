@@ -107,13 +107,13 @@ def init_database():
     # 5. Migrate: add model_used column to videos if not exists
     try:
         cursor.execute("ALTER TABLE videos ADD COLUMN model_used TEXT")
-        print("✅ Added model_used column to videos")
+        print("Added model_used column to videos")
     except sqlite3.OperationalError:
         pass  # column already exists
 
     conn.commit()
     conn.close()
-    print("✅ Database initialized successfully!")
+    print("Database initialized successfully!")
 
 
 # =====================================================================

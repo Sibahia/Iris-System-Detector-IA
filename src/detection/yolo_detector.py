@@ -73,7 +73,7 @@ class YOLOAnomalyDetector:
                     self.model.export(format="openvino")
                 self.model = YOLO(openvino_path, task="detect")
             except Exception as e:
-                print(f"⚠️ Falló exportación OpenVINO (usando PyTorch): {e}")
+                print(f"Falló exportación OpenVINO (usando PyTorch): {e}")
                 self.model = YOLO(model_name)
 
         model_name_for_mapping = os.path.basename(self.model_path) if self.model_path else None
@@ -204,7 +204,7 @@ class YOLOAnomalyDetector:
             entry = self.anomaly_map.get("weapon", {})
             anomalies["anomaly_types"].insert(0, entry.get("type", "ARMA_DETECTADA"))
             anomalies["anomaly_details"].insert(
-                0, f"⚠ ARMA DETECTADA: {', '.join(weapon_names)}"
+                0, f"ARMA DETECTADA: {', '.join(weapon_names)}"
             )
             anomalies["risk_level"] = entry.get("risk", "critico")
 
@@ -341,7 +341,7 @@ class YOLOAnomalyDetector:
         for det in detections.get("weapons", []):
             x1, y1, x2, y2 = det["bbox"]
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            label = f"⚠ {det['class_name'].upper()} {det['confidence']:.0%}"
+            label = f"! {det['class_name'].upper()} {det['confidence']:.0%}"
 
             (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
             cv2.rectangle(frame_copy, (x1, y1 - 25), (x1 + t_w, y1), (0, 0, 255), -1)
@@ -379,11 +379,11 @@ class YOLOAnomalyDetector:
 
         if anomalies["is_anomaly"]:
             status_color = (0, 0, 255) if is_critico else (0, 100, 200)
-            status_text = "🚨 RIESGO CRITICO" if is_critico else "⚠ ANOMALIA DETECTADA"
+            status_text = "RIESGO CRITICO" if is_critico else "ANOMALIA DETECTADA"
             detail_text = ", ".join(anomalies["anomaly_types"])
         else:
             status_color = (0, 150, 0)
-            status_text = "● NORMAL"
+            status_text = "NORMAL"
             detail_text = "Monitoreando..."
 
         cv2.rectangle(overlay, (0, 0), (w, bar_height), (0, 0, 0), -1)
