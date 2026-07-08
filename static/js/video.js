@@ -164,6 +164,10 @@ async function uploadVideo() {
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Error al iniciar el análisis');
+        }
         
         // Limpiamos el input después de iniciar la carga con éxito
         fileInput.value = '';
@@ -172,7 +176,7 @@ async function uploadVideo() {
         if (data.task_id) {
             pollTaskStatus(data.task_id);
         } else {
-            throw new Error(data.message || 'Error al iniciar el análisis');
+            throw new Error(data.detail || 'Error al iniciar el análisis');
         }
     } catch (error) {
         alert('Error: ' + error.message);
@@ -199,7 +203,7 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
-                alert('El análisis falló.');
+                alert('Error: ' + (task.error || 'El análisis falló.'));
             }
         } catch (error) {
             clearInterval(pollInterval);
