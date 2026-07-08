@@ -1,5 +1,7 @@
+import io
 import pytest
 from fastapi.testclient import TestClient
+from PIL import Image
 from unittest.mock import MagicMock, patch
 
 from app import app, AVAILABLE_MODELS, DEFAULT_MODEL
@@ -10,8 +12,11 @@ class TestImageDetectionAPI:
 
     @pytest.fixture
     def mock_image_file(self):
-        """Genera un archivo binario falso que simula ser una imagen JPEG"""
-        return ("test_image.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF", "image/jpeg")
+        """Genera una imagen JPEG válida mínima usando PIL"""
+        buf = io.BytesIO()
+        Image.new("RGB", (2, 2), color="red").save(buf, format="JPEG")
+        buf.seek(0)
+        return ("test_image.jpg", buf.read(), "image/jpeg")
 
     @pytest.fixture
     def mock_detector_success_normal(self):
@@ -89,7 +94,7 @@ class TestImageDetectionAPI:
         response = client.post("/analyze-image", files={"file": bad_file})
         
         assert response.status_code == 400
-        assert response.json()["detail"] == "File must be an image"
+        assert "File extension '.mp4' is not allowed for image files" in response.json()["detail"]
 
     def test_analyze_image_unregistered_model(self, mock_image_file):
         """Prueba que falle con un error 400 si se solicita un modelo no registrado"""
