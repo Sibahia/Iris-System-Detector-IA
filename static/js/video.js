@@ -1,4 +1,5 @@
 let currentVideoUrl = null;
+let currentResult = null;
 
 function getVideoThumbnail(file, maxTime = 0.5) {
     return new Promise((resolve) => {
@@ -164,6 +165,10 @@ async function uploadVideo() {
         });
 
         const data = await response.json();
+
+        if (!response.ok) {
+            throw new Error(data.detail || 'Error al iniciar el análisis');
+        }
         
         // Limpiamos el input después de iniciar la carga con éxito
         fileInput.value = '';
@@ -172,7 +177,7 @@ async function uploadVideo() {
         if (data.task_id) {
             pollTaskStatus(data.task_id);
         } else {
-            throw new Error(data.message || 'Error al iniciar el análisis');
+            throw new Error(data.detail || 'Error al iniciar el análisis');
         }
     } catch (error) {
         alert('Error: ' + error.message);
@@ -199,7 +204,7 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
-                alert('El análisis falló.');
+                alert('Error: ' + (task.error || 'El análisis falló.'));
             }
         } catch (error) {
             clearInterval(pollInterval);
@@ -209,6 +214,7 @@ async function pollTaskStatus(taskId) {
 }
 
 function displayResults(result) {
+    currentResult = result;
     const metricsDiv = document.getElementById('metrics');
 
     const isCritico = result.risk_level === 'critico';
@@ -327,10 +333,29 @@ function displayResults(result) {
     document.getElementById('results').style.display = 'block';
 }
 
+function initExportJSON() {
+    const btn = document.getElementById('export-json-btn');
+    if (!btn) return;
+    btn.addEventListener('click', function () {
+        if (!currentResult) return;
+        var json = JSON.stringify(currentResult, null, 2);
+        var blob = new Blob([json], { type: 'application/json' });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = 'analysis_result.json';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+}
+
 function init() {
     initVideoUpload();
     initModelSelect();
     initConfidenceSlider();
+    initExportJSON();
 }
 
 if (document.readyState === 'loading') {

@@ -151,6 +151,94 @@ sequenceDiagram
         end
     end
 ```
+
+### 5. Diagrama de Entidad-Relación (Base de Datos)
+
+```mermaid
+erDiagram
+    videos {
+        INTEGER id PK
+        TEXT filename
+        DATETIME upload_time
+        INTEGER frame_count
+        INTEGER anomaly_count
+        REAL anomaly_rate
+        REAL processing_time
+        REAL threshold_used
+        TEXT output_video_path
+        TEXT original_video_path
+        REAL avg_anomaly_score
+        REAL max_anomaly_score
+        TEXT model_used
+    }
+
+    anomaly_events {
+        INTEGER id PK
+        INTEGER video_id FK "Relaciona solo con videos"
+        INTEGER frame_number
+        REAL anomaly_score
+        REAL timestamp_in_video
+        BOOLEAN is_anomaly
+        TEXT bounding_boxes
+    }
+
+    images {
+        INTEGER id PK
+        TEXT input_path
+        TEXT output_path
+        TEXT model_used
+        REAL used_confidence
+        BOOLEAN is_anomaly
+        TEXT risk_level
+        INTEGER persons_count
+        INTEGER weapons_count
+        INTEGER objects_count
+        TEXT anomaly_types "Desnormalizado (JSON)"
+        TEXT detected_classes "Desnormalizado (JSON)"
+        INTEGER processing_time_ms
+        DATETIME created_at
+    }
+
+    streams {
+        INTEGER id PK
+        TEXT stream_id
+        TEXT source
+        TEXT model_used
+        REAL confidence
+        INTEGER crowd_threshold
+        TEXT start_time
+        TEXT end_time
+        REAL duration_seconds
+        REAL avg_fps
+        INTEGER total_frames
+        INTEGER anomaly_frames
+        REAL anomaly_rate
+        INTEGER max_person_count
+        INTEGER max_weapon_count
+        TEXT class_counts "Desnormalizado (JSON)"
+        TEXT anomaly_types "Desnormalizado (JSON)"
+        TEXT risk_level
+    }
+
+    videos ||--o{ anomaly_events : "contiene (1:N)"
+```
+
+La base de datos SQLite (`anomaly_history.db`) consta de 4 tablas:
+
+| Tabla | Propósito | Relaciones |
+|---|---|---|
+| `videos` | Metadata de cada video analizado (filename, frames, scores, rutas) | Padre de `anomaly_events` |
+| `anomaly_events` | Un registro por frame con score de anomalía y bounding boxes (JSON) | Hijo de `videos` (FK: `video_id`) |
+| `images` | Registro de cada imagen analizada (rutas, conteos, clases, nivel de riesgo) | Tabla independiente (Desnormalizada) |
+| `streams` | Resumen de cada sesión de stream en vivo (duración, FPS, conteos) | Tabla independiente (Desnormalizada) |
+
+> 💡 **Nota de Diseño — Estrategia de Persistencia Híbrida:**
+>
+> Para optimizar el rendimiento y la escalabilidad del sistema, se utiliza un enfoque híbrido de persistencia:
+>
+> 1. **Relacional (Normalizado 1:N) para Videos:** Dado que los videos se analizan secuencialmente frame a frame, se registran eventos individuales en `anomaly_events`. Esto permite trazar curvas de anomalías temporales y auditar detalladamente qué pasó en cada segundo.
+> 2. **Documental/Desnormalizado (JSON) para Imágenes:** Una imagen es un evento único y estático. Guardar detecciones en una tabla separada agregaría joins innecesarios. Se almacena toda la información de manera autocontenida usando cadenas JSON en `anomaly_types` y `detected_classes`.
+> 3. **Documental/Desnormalizado (JSON) para Streams:** El procesamiento de transmisiones en vivo ocurre a altos FPS continuos. Almacenar un registro por frame en `anomaly_events` causaría un crecimiento exponencial y degradación del disco. Al finalizar la sesión, se persiste únicamente el resumen acumulado en `streams` con sus clases agrupadas en formato JSON (`class_counts`, `anomaly_types`).
 ---
 
 ## 🛠️ Inicio Rápido

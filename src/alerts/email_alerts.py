@@ -119,7 +119,7 @@ def send_anomaly_alert(
         msg = MIMEMultipart()
         msg["From"] = EMAIL_CONFIG["sender_email"]
         msg["To"] = ", ".join(EMAIL_CONFIG["admin_emails"])
-        msg["Subject"] = f"🚨 ANOMALY ALERT: {', '.join(anomaly_types)}"
+        msg["Subject"] = f"ANOMALY ALERT: {', '.join(anomaly_types)}"
         
         # Create HTML body
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -128,7 +128,7 @@ def send_anomaly_alert(
         <html>
         <body style="font-family: Arial, sans-serif; padding: 20px;">
             <div style="background: #e74c3c; color: white; padding: 20px; border-radius: 10px;">
-                <h1 style="margin: 0;">🚨 Anomaly Detected!</h1>
+                <h1 style="margin: 0;">Anomaly Detected!</h1>
             </div>
             
             <div style="padding: 20px; background: #f5f5f5; margin-top: 20px; border-radius: 10px;">

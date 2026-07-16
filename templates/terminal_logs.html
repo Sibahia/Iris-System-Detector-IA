@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html class="dark" lang="es" style="">
+
+<head>
+    <meta charset="utf-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>{{SITE_TITLE}} - Logs del Sistema</title>
+    <link rel="stylesheet" href="static/css/tailwind.css">
+    <link href="/static/fonts/fonts.css" rel="stylesheet">
+</head>
+
+<body class="flex flex-col min-h-screen bg-background">
+    <header
+        class="fixed top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
+        <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
+            <h1 class="font-headline-md text-headline-md font-bold text-primary">{{SITE_TITLE}}</h1>
+        </div>
+        <div class="flex items-center gap-6">
+            <a class="bg-primary-container text-on-primary-container font-label-md text-label-md px-8 py-2.5 rounded-full font-bold active:scale-95 duration-200 orange-glow flex items-center gap-2"
+                href="/">
+                <span class="material-symbols-outlined text-sm">home</span>
+                Inicio
+            </a>
+        </div>
+    </header>
+
+    <main class="flex flex-col flex-1 relative z-10 px-grid-margin py-stack-xl mt-16 gap-stack-xl">
+        <header class="flex flex-col md:flex-row md:items-end justify-between gap-stack-lg">
+            <div>
+                <h1 class="font-display-lg text-display-lg text-on-surface leading-none mb-2">Logs del Sistema</h1>
+                <p class="font-body-lg text-body-lg text-on-surface-variant">Registro en memoria de los ultimos eventos del sistema.</p>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-12 gap-8">
+            <div class="col-span-12 glass-panel p-6 rounded-xl flex flex-wrap items-center gap-stack-md">
+                <div class="flex items-center flex-wrap gap-stack-sm">
+                    <select id="filter-level"
+                        class="bg-black/40 border border-white/10 rounded-xl py-3 px-4 focus:outline-none focus:border-primary-container text-on-surface appearance-none pr-10 cursor-pointer transition-colors">
+                        <option value="">Todos los niveles</option>
+                        <option value="DEBUG">DEBUG</option>
+                        <option value="INFO">INFO</option>
+                        <option value="WARNING">WARNING</option>
+                        <option value="ERROR">ERROR</option>
+                        <option value="CRITICAL">CRITICAL</option>
+                    </select>
+                    <button onclick="loadLogs()"
+                        class="bg-primary-container text-on-primary-container font-bold px-6 py-3 rounded-xl hover:brightness-110 active:scale-95 transition-all glow-button shadow-lg shadow-primary-container/20">Filtrar</button>
+                    <button onclick="clearFilters()"
+                        class="bg-white/10 text-on-surface font-bold px-6 py-3 rounded-xl hover:bg-white/20 active:scale-95 transition-all">Limpiar</button>
+                    <label class="flex items-center gap-2 text-on-surface-variant text-sm cursor-pointer ml-4">
+                        <input type="checkbox" id="auto-refresh" checked
+                            class="accent-primary-container w-4 h-4">
+                        Auto-refresh (2s)
+                    </label>
+                    <button id="copy-logs-btn"
+                        class="bg-white/10 text-on-surface font-bold px-6 py-3 rounded-xl hover:bg-white/20 active:scale-95 transition-all flex items-center gap-2">
+                        <span class="material-symbols-outlined text-sm">content_copy</span>
+                        Copiar todo
+                    </button>
+                </div>
+            </div>
+
+            <div class="col-span-12 glass-panel rounded-xl overflow-hidden border border-white/10">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-white/5 border-b border-white/10">
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Hora</th>
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Nivel</th>
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Modulo</th>
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Mensaje</th>
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center">Linea</th>
+                                <th class="px-6 py-5 font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-center w-16">JSON</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-body" class="divide-y divide-white/5 font-mono"></tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-4 bg-white/5 flex items-center justify-between border-t border-white/5">
+                    <p id="pagination-info" class="font-label-sm text-label-sm text-on-surface-variant"></p>
+                    <div class="flex items-center gap-2">
+                        <button id="prev-page" onclick="changePage(-1)" class="px-3 py-1 rounded-lg bg-white/10 text-on-surface text-sm hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">← Anterior</button>
+                        <span id="page-indicator" class="font-label-sm text-label-sm text-on-surface-variant px-2"></span>
+                        <button id="next-page" onclick="changePage(1)" class="px-3 py-1 rounded-lg bg-white/10 text-on-surface text-sm hover:bg-white/20 transition-colors disabled:opacity-30 disabled:cursor-not-allowed">Siguiente →</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="json-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
+        <div class="bg-surface-container-high rounded-2xl border border-white/10 shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+                <h2 class="font-headline-md text-headline-md text-on-surface-variant font-bold">Detalle del Log</h2>
+                <button onclick="closeJsonModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-white/10 transition-colors">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+            <div class="overflow-y-auto p-6 flex-1">
+                <pre class="bg-black/50 rounded-xl p-4 text-sm leading-relaxed overflow-x-auto" style="max-height: 60vh;"><code id="json-viewer" class="font-mono"></code></pre>
+            </div>
+            <div class="flex justify-end gap-2 px-6 py-4 border-t border-white/10 shrink-0">
+                <button id="copy-json-btn" onclick="copyJsonFromModal()" class="bg-white/10 text-on-surface font-bold px-4 py-2 rounded-xl hover:bg-white/20 active:scale-95 transition-all flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">content_copy</span>
+                    Copiar JSON
+                </button>
+                <button onclick="closeJsonModal()" class="bg-primary-container text-on-surface font-bold px-4 py-2 rounded-xl hover:bg-primary-container/80 active:scale-95 transition-all">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .json-key { color: #7dd3fc; }
+        .json-string { color: #86efac; }
+        .json-number { color: #fde68a; }
+        .json-boolean { color: #c4b5fd; }
+        .json-null { color: #fca5a5; }
+        .json-bracket { color: #e2e8f0; }
+    </style>
+
+    <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
+        <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
+            <div class="flex flex-col md:flex-row items-center gap-4">
+                <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
+                    <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
+                </span>
+                <p class="font-label-sm text-label-sm text-on-surface-variant">© 2024 Barrios D. Todos los derechos reservados.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script src="static/js/terminal_logs.js"></script>
+</body>
+
+</html>

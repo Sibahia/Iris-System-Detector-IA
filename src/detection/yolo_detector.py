@@ -48,17 +48,13 @@ class YOLOAnomalyDetector:
         env_conf = os.getenv("CONFIDENCE_THRESHOLD")
         if confidence_threshold is not None:
             self.confidence_threshold = confidence_threshold
-            print(f"🔧 Usando CONFIDENCE_THRESHOLD desde parámetro: {self.confidence_threshold}")
         elif env_conf is not None:
             try:
                 self.confidence_threshold = float(env_conf)
-                print(f"🔧 Usando CONFIDENCE_THRESHOLD desde .env: {self.confidence_threshold}")
             except ValueError:
-                print(f"⚠️ Valor inválido en .env para CONFIDENCE_THRESHOLD ('{env_conf}'). Usando fallback.")
                 self.confidence_threshold = 0.5
         else:
             self.confidence_threshold = 0.5
-            print(f"ℹ️ Variable CONFIDENCE_THRESHOLD no encontrada en .env. Usando valor por defecto: {self.confidence_threshold}")
 
         self.crowd_threshold = crowd_threshold
         self.loiter_threshold = loiter_threshold_seconds
@@ -66,7 +62,6 @@ class YOLOAnomalyDetector:
         self.model_path = model_path
 
         model_name = model_path or os.getenv("MODEL_NAME", f"yolo11{model_size}.pt")
-        print(f"Cargando modelo YOLO: {model_name}")
         self.model = YOLO(model_name)
 
         if device == "cpu":
@@ -75,29 +70,22 @@ class YOLOAnomalyDetector:
                 base_name = os.path.splitext(os.path.basename(model_name))[0]
                 openvino_path = os.path.join(model_dir, f"{base_name}_openvino_model/")
                 if not os.path.exists(openvino_path):
-                    print(
-                        "🚀 Exportando modelo a OpenVINO para aceleración en CPU... (Tarda ~1 min por única vez)"
-                    )
                     self.model.export(format="openvino")
-                    print("✅ ¡Exportación completa!")
-
-                print(f"Cargando modelo OpenVINO: {openvino_path}")
                 self.model = YOLO(openvino_path, task="detect")
-                print("✅ ¡Modelo optimizado con OpenVINO cargado!")
             except Exception as e:
-                print(f"⚠️ Falló la exportación a OpenVINO (usando PyTorch como respaldo): {e}")
+                print(f"Falló exportación OpenVINO (usando PyTorch): {e}")
                 self.model = YOLO(model_name)
-        else:
-            print("✅ ¡Modelo YOLO cargado con éxito!")
 
-        mapping = classify_classes(self.model.names)
+        model_name_for_mapping = os.path.basename(self.model_path) if self.model_path else None
+        mapping = classify_classes(self.model.names, model_name=model_name_for_mapping)
         self.WEAPON_CLASSES = mapping["weapon_ids"]
         self.PERSON_CLASSES = mapping["person_ids"]
+        self.ARMED_PERSON_CLASSES = mapping["armed_person_ids"]
+        self.BEHAVIOR_CATEGORIES = mapping["behavior_categories"]
         self.model_class_names = mapping["class_names"]
+        self.anomaly_map = mapping["anomaly_map"]
 
-        self.person_tracks: Dict[int, List[Tuple[float, float, float]]] = defaultdict(
-            list
-        )
+        self.person_tracks: Dict[int, List[Tuple[float, float, float]]] = defaultdict(list)
         self.object_velocities: Dict[int, float] = {}
         self.frame_count = 0
 
@@ -115,6 +103,7 @@ class YOLOAnomalyDetector:
             "weapons": [],
             "other_objects": [],
             "all_boxes": [],
+            "behaviors": {},
         }
 
         if len(results) > 0 and results[0].boxes is not None:
@@ -143,11 +132,28 @@ class YOLOAnomalyDetector:
 
                 detections["all_boxes"].append(detection)
 
+                # Behavior categories (e.g. assault, fight, kidnap)
+                behavior_found = None
+                for cat_name, cat_ids in self.BEHAVIOR_CATEGORIES.items():
+                    if cls in cat_ids:
+                        if cat_name not in detections["behaviors"]:
+                            detections["behaviors"][cat_name] = []
+                        detections["behaviors"][cat_name].append(detection)
+                        behavior_found = cat_name
+                        break
+
+                # Persons (includes armed_person)
                 if cls in self.PERSON_CLASSES:
                     detections["persons"].append(detection)
-                elif cls in self.WEAPON_CLASSES:
+
+                # Weapons (includes armed_person, so they go to BOTH lists)
+                if cls in self.WEAPON_CLASSES:
                     detections["weapons"].append(detection)
-                else:
+
+                # Other: not person, not weapon, not behavior
+                if (cls not in self.PERSON_CLASSES and
+                        cls not in self.WEAPON_CLASSES and
+                        behavior_found is None):
                     detections["other_objects"].append(detection)
 
         return detections
@@ -165,45 +171,64 @@ class YOLOAnomalyDetector:
         person_count = len(detections["persons"])
         weapon_count = len(detections["weapons"])
 
-        # 1. Monitoreo de Multitudes (Riesgo Base: Medio/Alto)
+        # 1. Crowd detection
         if person_count >= self.crowd_threshold:
             anomalies["is_anomaly"] = True
-            anomalies["anomaly_types"].append("AGLOMERACION_DE_PERSONAS")
+            entry = self.anomaly_map.get("crowd", {})
+            anomalies["anomaly_types"].append(entry.get("type", "AGLOMERACION_DE_PERSONAS"))
             anomalies["anomaly_details"].append(
                 f"Multitud detectada: {person_count} personas (límite: {self.crowd_threshold})"
             )
             anomalies["risk_level"] = (
-                "alto" if person_count > self.crowd_threshold * 2 else "medio"
+                "alto" if person_count > self.crowd_threshold * 2 else entry.get("risk", "medio")
             )
 
-        # 2. Monitoreo de Proximidad (Riesgo Base: Alto)
+        # 2. Proximity detection
         if person_count >= 2:
             close_pairs = self._check_proximity(
                 detections["persons"], proximity_threshold=150
             )
             if close_pairs > 0:
                 anomalies["is_anomaly"] = True
-                anomalies["anomaly_types"].append("ALTERCADO_POTENCIAL")
+                entry = self.anomaly_map.get("proximity", {})
+                anomalies["anomaly_types"].append(entry.get("type", "ALTERCADO_POTENCIAL"))
                 anomalies["anomaly_details"].append(
                     f"Advertencia: {close_pairs} personas muy próximas"
                 )
-                anomalies["risk_level"] = "alto"
+                anomalies["risk_level"] = entry.get("risk", "alto")
 
-        # 3. CRÍTICO: DETECCIÓN DE ARMAS (Caso Grave - Sobreescribe todo a Crítico)
+        # 3. Weapon detection (critico - overrides everything)
         if weapon_count > 0:
             anomalies["is_anomaly"] = True
             weapon_names = [w["class_name"].upper() for w in detections["weapons"]]
-            
-            # Insertamos la alerta de armas al inicio para asegurar máxima visibilidad
-            anomalies["anomaly_types"].insert(0, "ARMA_DETECTADA")
+            entry = self.anomaly_map.get("weapon", {})
+            anomalies["anomaly_types"].insert(0, entry.get("type", "ARMA_DETECTADA"))
             anomalies["anomaly_details"].insert(
-                0, f"⚠ ARMA DETECTADA: {', '.join(weapon_names)}"
+                0, f"ARMA DETECTADA: {', '.join(weapon_names)}"
             )
-            
-            # Forzamos riesgo critico sin importar las reglas anteriores
-            anomalies["risk_level"] = "critico"
+            anomalies["risk_level"] = entry.get("risk", "critico")
 
-        # 4. Combinación Sospechosa
+        # 4. Behavior-based anomalies (from suspicious.pt etc.)
+        for cat_name, cat_detections in detections.get("behaviors", {}).items():
+            if not cat_detections:
+                continue
+            entry = self.anomaly_map.get(cat_name)
+            if entry:
+                anomaly_type = entry["type"]
+                behavior_names = [d["class_name"].upper() for d in cat_detections]
+                risk = entry.get("risk", "alto")
+                anomalies["is_anomaly"] = True
+                if anomaly_type not in anomalies["anomaly_types"]:
+                    anomalies["anomaly_types"].append(anomaly_type)
+                    anomalies["anomaly_details"].append(
+                        f"{anomaly_type}: {', '.join(behavior_names)}"
+                    )
+                # Upgrade risk if behavior risk is higher
+                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3, "critico": 4}
+                if risk_order.get(risk, 0) > risk_order.get(anomalies["risk_level"], 0):
+                    anomalies["risk_level"] = risk
+
+        # 5. Suspicious combo (weapons + people)
         if weapon_count > 0 and person_count >= 2:
             if "ACTIVIDAD_SOSPECHOSA" not in anomalies["anomaly_types"]:
                 anomalies["anomaly_types"].append("ACTIVIDAD_SOSPECHOSA")
@@ -297,7 +322,7 @@ class YOLOAnomalyDetector:
 
         is_critico = anomalies.get("risk_level") == "critico"
 
-        # Dibujar Personas (Si es critico por arma, el recuadro de la persona cambia a rojo de alerta)
+        # Draw Persons
         person_color = (0, 0, 255) if (anomalies["is_anomaly"] or is_critico) else (0, 255, 0)
         for det in detections["persons"]:
             x1, y1, x2, y2 = det["bbox"]
@@ -312,11 +337,11 @@ class YOLOAnomalyDetector:
                 frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
             )
 
-        # Dibujar Armas (Recuadro más grueso y llamativo)
+        # Draw Weapons
         for det in detections.get("weapons", []):
             x1, y1, x2, y2 = det["bbox"]
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            label = f"⚠ {det['class_name'].upper()} {det['confidence']:.0%}"
+            label = f"! {det['class_name'].upper()} {det['confidence']:.0%}"
 
             (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
             cv2.rectangle(frame_copy, (x1, y1 - 25), (x1 + t_w, y1), (0, 0, 255), -1)
@@ -324,18 +349,41 @@ class YOLOAnomalyDetector:
                 frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2
             )
 
-        # Barra superior de estado
+        # Draw Behaviors
+        behavior_colors = {
+            "behavior_assault": (255, 0, 100),
+            "behavior_fight": (255, 100, 0),
+            "behavior_kidnap": (100, 0, 255),
+            "behavior_terror": (0, 0, 180),
+            "behavior_robbery": (255, 165, 0),
+        }
+        for cat_name, cat_detections in detections.get("behaviors", {}).items():
+            color = behavior_colors.get(cat_name, (255, 120, 0))
+            for det in cat_detections:
+                x1, y1, x2, y2 = det["bbox"]
+                # Don't re-draw if already drawn as person or weapon
+                if det in detections.get("weapons", []) or det in detections.get("persons", []):
+                    continue
+                cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
+                label = f"! {det['class_name'].upper()} {det['confidence']:.0%}"
+
+                (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+                cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), color, -1)
+                cv2.putText(
+                    frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
+                )
+
+        # Top status bar
         pad = 20
         bar_height = 50
 
         if anomalies["is_anomaly"]:
-            # Si el riesgo es critico, forzamos un rojo vivo (0, 0, 255)
             status_color = (0, 0, 255) if is_critico else (0, 100, 200)
-            status_text = "🚨 RIESGO CRITICO: ARMA" if is_critico else "⚠ ANOMALIA DETECTADA"
+            status_text = "RIESGO CRITICO" if is_critico else "ANOMALIA DETECTADA"
             detail_text = ", ".join(anomalies["anomaly_types"])
         else:
             status_color = (0, 150, 0)
-            status_text = "● NORMAL"
+            status_text = "NORMAL"
             detail_text = "Monitoreando..."
 
         cv2.rectangle(overlay, (0, 0), (w, bar_height), (0, 0, 0), -1)
@@ -360,7 +408,7 @@ class YOLOAnomalyDetector:
             frame_copy, stats_text, (w - tw - pad, 45), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (200, 200, 200), 1
         )
 
-        # Barra inferior de detalles críticos (Se mantiene activa para casos graves)
+        # Bottom detail bar
         if anomalies["is_anomaly"] and anomalies["anomaly_details"]:
             overlay_bottom = frame_copy.copy()
             cv2.rectangle(overlay_bottom, (0, h - 40), (w, h), (0, 0, 180), -1)
@@ -469,6 +517,7 @@ class YOLOAnomalyDetector:
 
 
 _detector_instance = None
+_detector_model_path = None
 
 
 def get_yolo_detector(
@@ -479,8 +528,8 @@ def get_yolo_detector(
     crowd_threshold: int = 5,
     loiter_threshold_seconds: float = 10.0,
 ) -> YOLOAnomalyDetector:
-    global _detector_instance
-    if _detector_instance is None:
+    global _detector_instance, _detector_model_path
+    if _detector_instance is None or model_path != _detector_model_path:
         _detector_instance = YOLOAnomalyDetector(
             model_size=model_size,
             model_path=model_path,
@@ -489,4 +538,5 @@ def get_yolo_detector(
             crowd_threshold=crowd_threshold,
             loiter_threshold_seconds=loiter_threshold_seconds,
         )
+        _detector_model_path = model_path
     return _detector_instance

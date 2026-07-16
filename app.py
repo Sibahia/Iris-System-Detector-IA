@@ -49,7 +49,10 @@ from storage.database import (
     get_all_streams,
     get_stream_by_id,
     delete_stream,
+    get_anomaly_events,
 )
+
+from logs.memory_handler import MemoryLogHandler
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -66,6 +69,11 @@ class JSONFormatter(logging.Formatter):
 handler = logging.StreamHandler()
 handler.setFormatter(JSONFormatter())
 logging.basicConfig(level=logging.INFO, handlers=[handler])
+
+memory_log_handler = MemoryLogHandler(capacity=500)
+memory_log_handler.setLevel(logging.INFO)
+logging.getLogger().addHandler(memory_log_handler)
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -84,6 +92,65 @@ AVAILABLE_MODELS = [m.strip() for m in os.getenv("AVAILABLE_MODELS", "best.pt").
 DEFAULT_MODEL = os.getenv("MODEL_NAME", "best.pt")
 if DEFAULT_MODEL not in AVAILABLE_MODELS:
     AVAILABLE_MODELS.insert(0, DEFAULT_MODEL)
+
+# =====================================================================
+# FILE VALIDATION UTILITIES
+# =====================================================================
+
+IMAGE_SIGNATURES = {
+    b"\xff\xd8\xff": "image/jpeg",
+    b"\x89\x50\x4e\x47": "image/png",
+    b"\x47\x49\x46\x38": "image/gif",
+    b"\x42\x4d": "image/bmp",
+}
+
+VIDEO_SIGNATURES: dict[bytes, str] = {
+    b"\x1a\x45\xdf\xa3": "video/webm",
+    b"\x52\x49\x46\x46": "video/avi",
+}
+
+EXT_TO_MIME = {
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif",
+    ".bmp": "image/bmp", ".webp": "image/webp",
+    ".mp4": "video/mp4", ".avi": "video/x-msvideo",
+    ".mov": "video/quicktime", ".mkv": "video/x-matroska",
+}
+
+ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
+
+
+def detect_mime_by_magic(content: bytes) -> str | None:
+    for sig, mime in IMAGE_SIGNATURES.items():
+        if content[:len(sig)] == sig:
+            return mime
+    for sig, mime in VIDEO_SIGNATURES.items():
+        if content[:len(sig)] == sig:
+            return mime
+    if len(content) > 8 and content[4:8] == b"ftyp":
+        return "video/mp4"
+    return None
+
+
+def validate_upload(content: bytes, filename: str, content_type: str, expected_type: str):
+    ext = os.path.splitext(filename)[1].lower()
+    allowed = ALLOWED_VIDEO_EXTENSIONS if expected_type == "video" else ALLOWED_IMAGE_EXTENSIONS
+
+    if ext not in allowed:
+        raise HTTPException(400, f"File extension '{ext}' is not allowed for {expected_type} files")
+
+    if not content_type.startswith(f"{expected_type}/"):
+        raise HTTPException(400, f"Content type must be {expected_type}/*, got '{content_type}'")
+
+    magic_mime = detect_mime_by_magic(content)
+    if magic_mime is None:
+        raise HTTPException(400, f"File does not match any known {expected_type} format")
+
+    expected_mime = EXT_TO_MIME.get(ext)
+    if expected_mime and magic_mime != expected_mime:
+        raise HTTPException(400, f"File extension '{ext}' does not match actual file format ('{magic_mime}')")
+
 
 # =====================================================================
 # LIFESPAN MANAGEMENT (MANEJADOR DE CONTEXTO)
@@ -122,13 +189,20 @@ async def correlation_id_middleware(request: Request, call_next):
     request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
-    logger.info(json.dumps({
-        "correlation_id": correlation_id,
-        "method": request.method,
-        "path": request.url.path,
-        "status": response.status_code,
-    }))
+    path = request.url.path
+    if path not in ("/api/logs",) and not path.startswith("/static/"):
+        logger.info(json.dumps({
+            "correlation_id": correlation_id,
+            "method": request.method,
+            "path": path,
+            "status": response.status_code,
+        }))
     return response
+
+
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
 
 
 @app.exception_handler(Exception)
@@ -246,9 +320,10 @@ def run_analysis_task(
         }
 
     except Exception as e:
-        logger.error(f"Task failed: {e}")
+        error_id = str(uuid.uuid4())
+        logger.error(f"Task failed [{error_id}]: {e}", exc_info=True)
         TASKS[task_id]["status"] = "failed"
-        TASKS[task_id]["error"] = str(e)
+        TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
         if os.path.exists(file_path):
             try:
@@ -348,6 +423,22 @@ async def health():
     return JSONResponse(content=health_status, status_code=status_code)
 
 
+@app.get("/api/logs")
+async def get_logs(
+    level: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    return memory_log_handler.get_logs(level=level, limit=limit, offset=offset)
+
+
+@app.get("/terminal-logs")
+async def terminal_logs_page():
+    with open(os.path.join(TEMPLATES_DIR, "terminal_logs.html"), encoding="utf-8") as f:
+        content = f.read()
+    return HTMLResponse(content.replace("{{SITE_TITLE}}", SITE_TITLE))
+
+
 # =====================================================================
 # MODEL MANIFEST UTILITIES
 # =====================================================================
@@ -370,29 +461,40 @@ async def analyze_yolo(
     confidence: float = Query(CONFIDENCE_THRESHOLD),
     model_name: Optional[str] = Query(None),
 ):
-    if not file.content_type.startswith("video/"):
-        raise HTTPException(400, "File must be a video")
-
-    if model_name and model_name not in AVAILABLE_MODELS:
-        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
-
     safe_filename = os.path.basename(file.filename or "video.mp4")
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
     try:
         content = await file.read()
+
         if len(content) > MAX_FILE_SIZE:
-            temp.close()
-            os.unlink(temp.name)
             raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
+
+        validate_upload(content, safe_filename, file.content_type or "", "video")
+
         temp.write(content)
         temp.close()
         temp_path = temp.name
+
+        import cv2
+        cap = cv2.VideoCapture(temp_path)
+        if not cap.isOpened():
+            cap.release()
+            raise HTTPException(400, "Video file appears corrupted or unreadable")
+        cap.release()
     except HTTPException:
+        temp.close()
+        try:
+            os.unlink(temp.name)
+        except:
+            pass
         raise
     except:
         temp.close()
         raise HTTPException(500, "Failed to save file")
+
+    if model_name and model_name not in AVAILABLE_MODELS:
+        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
 
     task_id = str(uuid.uuid4())
     output_filename = f"yolo_{task_id}.mp4"
@@ -465,30 +567,40 @@ async def analyze_image(
     confidence: float = Query(CONFIDENCE_THRESHOLD),
     model_name: Optional[str] = Query(None)
 ):
-    if not file.content_type.startswith("image/"):
-        raise HTTPException(400, "File must be an image")
-
     # Validar y resolver que modelo usar
     selected_model = model_name if model_name else DEFAULT_MODEL
     if selected_model not in AVAILABLE_MODELS:
         raise HTTPException(400, f"Model '{selected_model}' is not registered in AVAILABLE_MODELS.")
 
-    # Construir la ruta correcta apuntando al subdirectorio models/
     model_path = os.path.join("models", selected_model)
 
-    # Guardar archivo de entrada temporalmente
     safe_filename = os.path.basename(file.filename or "image.jpg")
     ext = os.path.splitext(safe_filename)[1] or ".jpg"
     temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
     try:
         content = await file.read()
+
         if len(content) > MAX_FILE_SIZE:
-            temp_input.close()
-            os.unlink(temp_input.name)
             raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
+
+        validate_upload(content, safe_filename, file.content_type or "", "image")
+
         temp_input.write(content)
         temp_input.close()
+        temp_path = temp_input.name
+
+        from PIL import Image
+        try:
+            img = Image.open(temp_path)
+            img.verify()
+        except Exception:
+            raise HTTPException(400, "Image file appears corrupted or unreadable")
     except HTTPException:
+        temp_input.close()
+        try:
+            os.unlink(temp_input.name)
+        except:
+            pass
         raise
     except:
         temp_input.close()
@@ -536,8 +648,9 @@ async def analyze_image(
         return raw_results
 
     except Exception as e:
-        logger.error(f"Image analysis failed: {e}")
-        raise HTTPException(500, f"Analysis execution error: {str(e)}")
+        error_id = str(uuid.uuid4())
+        logger.error(f"Image analysis failed [{error_id}]: {e}", exc_info=True)
+        raise HTTPException(500, f"Ocurrió un error. Reporte el código: {error_id}")
     finally:
         if os.path.exists(temp_input.name):
             try:
@@ -666,6 +779,62 @@ async def get_combined_history(
 
 
 # =====================================================================
+# RECORD DETAIL (para modal de logs)
+# =====================================================================
+
+@app.get("/record-detail/{record_type}/{record_id}")
+async def get_record_detail(record_type: str, record_id: int):
+    if record_type == "video":
+        record = get_video_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Video not found")
+        events = get_anomaly_events(record_id)
+        record["anomaly_events"] = events
+        record["record_type"] = "video"
+        class_counts = {}
+        for ev in events:
+            bboxes = ev.get("bounding_boxes", [])
+            if isinstance(bboxes, list):
+                for box in bboxes:
+                    name = box.get("class_name", "unknown")
+                    class_counts[name] = class_counts.get(name, 0) + 1
+        record["class_counts"] = class_counts
+        record["model_classes"] = list(class_counts.keys()) if class_counts else []
+        return record
+
+    elif record_type == "image":
+        record = get_image_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Image not found")
+        record["record_type"] = "image"
+        model_name = record.get("model_used", "")
+        try:
+            from detection.class_mapper import classify_classes
+            model_names_map = {}
+            if model_name:
+                model_path = os.path.join("models", model_name)
+                if os.path.exists(model_path):
+                    from ultralytics import YOLO
+                    temp_model = YOLO(model_path)
+                    model_names_map = temp_model.names
+            mapping = classify_classes(model_names_map, model_name=model_name)
+            record["model_classes"] = list(mapping["class_names"].values())
+        except Exception:
+            record["model_classes"] = record.get("detected_classes", [])
+        return record
+
+    elif record_type == "stream":
+        record = get_stream_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Stream not found")
+        record["record_type"] = "stream"
+        return record
+
+    else:
+        raise HTTPException(400, f"Invalid record_type: {record_type}. Use video, image, or stream.")
+
+
+# =====================================================================
 # GLOBAL STATS & CORE OPERATIONS
 # =====================================================================
 
@@ -701,7 +870,7 @@ async def email_status():
 @app.get("/live", response_class=HTMLResponse)
 async def live_page():
     template_path = os.path.join(TEMPLATES_DIR, "live.html")
-    with open(template_path, "r") as f:
+    with open(template_path, "r", encoding="utf-8") as f:
         return HTMLResponse(content=f.read())
 
 
