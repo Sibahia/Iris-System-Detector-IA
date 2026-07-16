@@ -778,6 +778,62 @@ async def get_combined_history(
 
 
 # =====================================================================
+# RECORD DETAIL (para modal de logs)
+# =====================================================================
+
+@app.get("/record-detail/{record_type}/{record_id}")
+async def get_record_detail(record_type: str, record_id: int):
+    if record_type == "video":
+        record = get_video_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Video not found")
+        events = get_anomaly_events(record_id)
+        record["anomaly_events"] = events
+        record["record_type"] = "video"
+        class_counts = {}
+        for ev in events:
+            bboxes = ev.get("bounding_boxes", [])
+            if isinstance(bboxes, list):
+                for box in bboxes:
+                    name = box.get("class_name", "unknown")
+                    class_counts[name] = class_counts.get(name, 0) + 1
+        record["class_counts"] = class_counts
+        record["model_classes"] = list(class_counts.keys()) if class_counts else []
+        return record
+
+    elif record_type == "image":
+        record = get_image_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Image not found")
+        record["record_type"] = "image"
+        model_name = record.get("model_used", "")
+        try:
+            from detection.class_mapper import classify_classes
+            model_names_map = {}
+            if model_name:
+                model_path = os.path.join("models", model_name)
+                if os.path.exists(model_path):
+                    from ultralytics import YOLO
+                    temp_model = YOLO(model_path)
+                    model_names_map = temp_model.names
+            mapping = classify_classes(model_names_map, model_name=model_name)
+            record["model_classes"] = list(mapping["class_names"].values())
+        except Exception:
+            record["model_classes"] = record.get("detected_classes", [])
+        return record
+
+    elif record_type == "stream":
+        record = get_stream_by_id(record_id)
+        if not record:
+            raise HTTPException(404, "Stream not found")
+        record["record_type"] = "stream"
+        return record
+
+    else:
+        raise HTTPException(400, f"Invalid record_type: {record_type}. Use video, image, or stream.")
+
+
+# =====================================================================
 # GLOBAL STATS & CORE OPERATIONS
 # =====================================================================
 

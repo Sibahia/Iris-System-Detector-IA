@@ -91,6 +91,12 @@ function renderPage() {
                     </button>`;
             }
             actionHtml += `
+                <button onclick="viewRecordJSON(${v.id}, '${type}')" title="Ver JSON" class="bg-white/10 text-on-surface px-3 py-2 rounded-lg hover:bg-white/20 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-sm leading-none">data_object</span>
+                </button>
+                <button onclick="viewRecordCards(${v.id}, '${type}')" title="Ver Cards" class="bg-white/10 text-on-surface px-3 py-2 rounded-lg hover:bg-white/20 transition-all flex items-center justify-center">
+                    <span class="material-symbols-outlined text-sm leading-none">dashboard</span>
+                </button>
                 <button onclick="deleteRecord(${v.id}, '${type}')" class="bg-error-container/20 text-error px-3 py-2 rounded-lg hover:bg-error-container transition-all flex items-center justify-center">
                     <span class="material-symbols-outlined text-sm leading-none">delete</span>
                 </button>`;
@@ -197,6 +203,147 @@ function clearFilters() {
     loadHistory();
 }
 
+function syntaxHighlight(json) {
+    return json.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+        .replace(/:(\s*)"([^"]*)"/g, ':<span class="json-string">"$2"</span>')
+        .replace(/:(\s*)(\d+(?:\.\d+)?)/g, ':<span class="json-number">$2</span>')
+        .replace(/:(\s*)(true|false)/g, ':<span class="json-boolean">$2</span>')
+        .replace(/:(\s*)(null)/g, ':<span class="json-null">$2</span>');
+}
+
+function optimalGridCols(n, min, max) {
+    var best = max, bestScore = -Infinity;
+    for (var c = max; c >= min; c--) {
+        var rows = Math.ceil(n / c);
+        var fill = n / (c * rows);
+        var balance = Math.min(c, rows) / Math.max(c, rows);
+        var score = fill * 10 + balance;
+        if (score > bestScore) { bestScore = score; best = c; }
+    }
+    return best;
+}
+
+async function viewRecordJSON(id, type) {
+    var modal = document.getElementById('json-detail-modal');
+    var content = document.getElementById('json-detail-content');
+    var title = document.getElementById('json-detail-title');
+    if (!modal || !content) return;
+
+    title.textContent = 'JSON del Registro #' + id + ' (' + type + ')';
+    content.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Cargando...</div>';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    try {
+        var resp = await fetch('/record-detail/' + type + '/' + id);
+        if (!resp.ok) throw new Error('Error al obtener detalle');
+        var data = await resp.json();
+        var formatted = JSON.stringify(data, null, 2);
+        content.innerHTML = '<pre class="bg-black/50 rounded-xl p-4 text-sm leading-relaxed overflow-x-auto"><code class="font-mono">' + syntaxHighlight(formatted) + '</code></pre>';
+    } catch (e) {
+        content.innerHTML = '<div class="text-center py-8 text-error">Error: ' + e.message + '</div>';
+    }
+}
+
+function closeJsonDetailModal() {
+    var modal = document.getElementById('json-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
+function copyJsonDetail() {
+    var code = document.querySelector('#json-detail-content code');
+    if (!code) return;
+    var btn = document.getElementById('copy-json-detail-btn');
+    navigator.clipboard.writeText(code.textContent).then(function () {
+        if (!btn) return;
+        var orig = btn.innerHTML;
+        btn.innerHTML = '<span class="material-symbols-outlined text-sm">check</span> Copiado';
+        setTimeout(function () { btn.innerHTML = orig; }, 2000);
+    }).catch(function () {
+        alert('No se pudo copiar al portapapeles');
+    });
+}
+
+async function viewRecordCards(id, type) {
+    var modal = document.getElementById('cards-detail-modal');
+    var content = document.getElementById('cards-detail-content');
+    var title = document.getElementById('cards-detail-title');
+    if (!modal || !content) return;
+
+    title.textContent = 'Class Cards — Registro #' + id + ' (' + type + ')';
+    content.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Cargando...</div>';
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+
+    try {
+        var resp = await fetch('/record-detail/' + type + '/' + id);
+        if (!resp.ok) throw new Error('Error al obtener detalle');
+        var data = await resp.json();
+
+        var classCounts = data.class_counts || {};
+        var modelClasses = data.model_classes || Object.keys(classCounts);
+
+        if (modelClasses.length === 0) {
+            content.innerHTML = '<div class="text-center py-8 text-on-surface-variant">No hay clases disponibles para este registro</div>';
+            return;
+        }
+
+        var cols = optimalGridCols(modelClasses.length, 2, 6);
+        var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
+
+        modelClasses.forEach(function (cls) {
+            var count = classCounts[cls] || 0;
+            var nameLower = cls.toLowerCase();
+            var borderColor = 'border-primary-container/30';
+            var textColor = 'text-primary';
+            var icon = 'category';
+
+            if (nameLower.indexOf('person') !== -1 || nameLower.indexOf('persona') !== -1) {
+                borderColor = 'border-blue-400/30';
+                textColor = 'text-blue-400';
+                icon = 'person';
+            } else if (nameLower.indexOf('knife') !== -1 || nameLower.indexOf('weapon') !== -1 || nameLower.indexOf('gun') !== -1 || nameLower.indexOf('pistol') !== -1 || nameLower.indexOf('rifle') !== -1 || nameLower.indexOf('arma') !== -1 || nameLower.indexOf('cuchillo') !== -1 || nameLower.indexOf('fuego') !== -1) {
+                borderColor = 'border-red-500/30';
+                textColor = 'text-red-500';
+                icon = 'warning';
+            }
+
+            if (count === 0) {
+                html += '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
+                    '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
+                    '<span class="material-symbols-outlined text-sm">lock</span> ' + cls +
+                    '</span>' +
+                    '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
+                    '</div>';
+            } else {
+                html += '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + borderColor + '">' +
+                    '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
+                    '<span class="material-symbols-outlined text-sm ' + textColor + '">' + icon + '</span>' + cls +
+                    '</span>' +
+                    '<span class="font-display-lg text-headline-lg ' + textColor + ' text-center">' + count + '</span>' +
+                    '</div>';
+            }
+        });
+
+        html += '</div>';
+        content.innerHTML = html;
+    } catch (e) {
+        content.innerHTML = '<div class="text-center py-8 text-error">Error: ' + e.message + '</div>';
+    }
+}
+
+function closeCardsDetailModal() {
+    var modal = document.getElementById('cards-detail-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+}
+
 function initLiveSearch() {
     const input = document.getElementById('search-filename');
     if (!input) return;
@@ -221,4 +368,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const rateSelect = document.getElementById('filter-rate');
     if (rateSelect) rateSelect.addEventListener('change', loadHistory);
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeJsonDetailModal();
+            closeCardsDetailModal();
+        }
+    });
+
+    var jsonModal = document.getElementById('json-detail-modal');
+    if (jsonModal) jsonModal.addEventListener('click', closeJsonDetailModal);
+
+    var cardsModal = document.getElementById('cards-detail-modal');
+    if (cardsModal) cardsModal.addEventListener('click', closeCardsDetailModal);
 });

@@ -151,6 +151,88 @@ sequenceDiagram
         end
     end
 ```
+
+### 5. Diagrama de Entidad-Relación (Base de Datos)
+
+```mermaid
+erDiagram
+    videos {
+        INTEGER id PK
+        TEXT filename
+        DATETIME upload_time
+        INTEGER frame_count
+        INTEGER anomaly_count
+        REAL anomaly_rate
+        REAL processing_time
+        REAL threshold_used
+        TEXT output_video_path
+        TEXT original_video_path
+        REAL avg_anomaly_score
+        REAL max_anomaly_score
+        TEXT model_used
+    }
+
+    anomaly_events {
+        INTEGER id PK
+        INTEGER video_id FK
+        INTEGER frame_number
+        REAL anomaly_score
+        REAL timestamp_in_video
+        BOOLEAN is_anomaly
+        TEXT bounding_boxes
+    }
+
+    images {
+        INTEGER id PK
+        TEXT input_path
+        TEXT output_path
+        TEXT model_used
+        REAL used_confidence
+        BOOLEAN is_anomaly
+        TEXT risk_level
+        INTEGER persons_count
+        INTEGER weapons_count
+        INTEGER objects_count
+        TEXT anomaly_types
+        TEXT detected_classes
+        INTEGER processing_time_ms
+        DATETIME created_at
+    }
+
+    streams {
+        INTEGER id PK
+        TEXT stream_id
+        TEXT source
+        TEXT model_used
+        REAL confidence
+        INTEGER crowd_threshold
+        TEXT start_time
+        TEXT end_time
+        REAL duration_seconds
+        REAL avg_fps
+        INTEGER total_frames
+        INTEGER anomaly_frames
+        REAL anomaly_rate
+        INTEGER max_person_count
+        INTEGER max_weapon_count
+        TEXT class_counts
+        TEXT anomaly_types
+        TEXT risk_level
+    }
+
+    videos ||--o{ anomaly_events : "tiene"
+```
+
+La base de datos SQLite (`anomaly_history.db`) consta de 4 tablas:
+
+| Tabla | Propósito | Relaciones |
+|---|---|---|
+| `videos` | Metadata de cada video analizado (filename, frames, scores, rutas) | Padre de `anomaly_events` |
+| `anomaly_events` | Un registro por frame con score de anomalía y bounding boxes (JSON) | Hijo de `videos` (FK: `video_id`) |
+| `images` | Registro de cada imagen analizada (rutas, conteos, clases, nivel de riesgo) | Tabla independiente |
+| `streams` | Resumen de cada sesión de stream en vivo (duración, FPS, conteos) | Tabla independiente |
+
+> **Nota:** Las columnas `anomaly_types`, `detected_classes`, `bounding_boxes` y `class_counts` almacenan JSON como texto. La relación `videos → anomaly_events` es **1:N**.
 ---
 
 ## 🛠️ Inicio Rápido

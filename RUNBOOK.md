@@ -14,6 +14,33 @@ Ante un incidente, verificar el estado del sistema con los siguientes comandos:
 | Base de datos | `sqlite3 src/storage/anomaly_history.db "SELECT count(*) FROM videos;"` |
 | Modelos YOLO | `ls -la models/` |
 
+### Acceso a Logs del Sistema
+
+El sistema dispone de 3 fuentes de logs:
+
+| Fuente | Endpoint | Descripción |
+|---|---|---|
+| Logs en memoria (terminal) | `GET /terminal-logs` | Interfaz web con los últimos 500 eventos del sistema, auto-refresh cada 2s |
+| API de logs | `GET /api/logs?level=LEVEL&limit=N&offset=M` | API REST que retorna logs en JSON, filtrable por nivel |
+| Historial de análisis | `GET /combined-history` | Registros persistentes de videos, imágenes y streams analizados (SQLite) |
+
+**Filtros disponibles en `/api/logs`:**
+- `level`: Filtrar por nivel (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+- `limit`: Cantidad máxima de registros (default: 50)
+- `offset`: Paginación
+
+**Ejemplos:**
+```bash
+# Ver todos los logs de error
+curl http://localhost:8000/api/logs?level=ERROR
+
+# Ver los últimos 200 logs
+curl http://localhost:8000/api/logs?limit=200
+
+# Abrir la interfaz web de logs
+# Navegar a http://localhost:8000/terminal-logs
+```
+
 ## Fase #2: Protocolo ante Caídas
 
 ### Nivel L1 — Operador
