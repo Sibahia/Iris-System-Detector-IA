@@ -53,6 +53,7 @@ from storage.database import (
 )
 
 from logs.memory_handler import MemoryLogHandler
+from detection.model_utils import get_native_class_names_for_model, compute_class_groups
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -316,7 +317,12 @@ def run_analysis_task(
             "risk_percentage": risk_percentage,
             "model_name": model_name or "default",
             "class_counts": stats.get("class_counts", {}),
-            "model_classes": list(yolo.model_class_names.values()) if hasattr(yolo, 'model_class_names') else []
+            "model_classes": list(yolo.model_class_names.values()) if hasattr(yolo, 'model_class_names') else [],
+            "class_groups": compute_class_groups(
+                model_name or "default",
+                stats.get("class_counts", {}),
+                getattr(yolo, 'model_class_names', {})
+            )
         }
 
     except Exception as e:
@@ -644,6 +650,11 @@ async def analyze_image(
         raw_results["risk_percentage"] = risk_pct
         raw_results["crowd_threshold"] = crowd_threshold
         raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
+        raw_results["class_groups"] = compute_class_groups(
+            raw_results.get("model_used", ""),
+            raw_results.get("class_counts", {}),
+            getattr(detector, 'model_class_names', {})
+        )
 
         return raw_results
 
@@ -799,7 +810,15 @@ async def get_record_detail(record_type: str, record_id: int):
                     name = box.get("class_name", "unknown")
                     class_counts[name] = class_counts.get(name, 0) + 1
         record["class_counts"] = class_counts
-        record["model_classes"] = list(class_counts.keys()) if class_counts else []
+
+        model_name = record.get("model_name") or record.get("model_used", "")
+        native_names = get_native_class_names_for_model(model_name)
+        if not native_names:
+            native_names = list(class_counts.keys())
+        record["model_classes"] = native_names
+
+        names_map = {i: name for i, name in enumerate(native_names)}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     elif record_type == "image":
@@ -808,19 +827,18 @@ async def get_record_detail(record_type: str, record_id: int):
             raise HTTPException(404, "Image not found")
         record["record_type"] = "image"
         model_name = record.get("model_used", "")
-        try:
-            from detection.class_mapper import classify_classes
-            model_names_map = {}
-            if model_name:
-                model_path = os.path.join("models", model_name)
-                if os.path.exists(model_path):
-                    from ultralytics import YOLO
-                    temp_model = YOLO(model_path)
-                    model_names_map = temp_model.names
-            mapping = classify_classes(model_names_map, model_name=model_name)
-            record["model_classes"] = list(mapping["class_names"].values())
-        except Exception:
-            record["model_classes"] = record.get("detected_classes", [])
+        native_names = get_native_class_names_for_model(model_name)
+        if not native_names:
+            native_names = record.get("detected_classes", [])
+        record["model_classes"] = native_names
+        names_map = {i: name for i, name in enumerate(native_names)}
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     elif record_type == "stream":
@@ -828,6 +846,18 @@ async def get_record_detail(record_type: str, record_id: int):
         if not record:
             raise HTTPException(404, "Stream not found")
         record["record_type"] = "stream"
+        model_name = record.get("model_name") or record.get("model_used", "")
+        native_names = get_native_class_names_for_model(model_name)
+        record["model_classes"] = native_names
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
+        record["class_counts"] = class_counts
+        names_map = {i: name for i, name in enumerate(native_names)}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     else:

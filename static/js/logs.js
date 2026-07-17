@@ -268,13 +268,112 @@ function copyJsonDetail() {
     });
 }
 
+function getGroupStyle(groupName) {
+    var n = groupName.toLowerCase();
+    if (n.indexOf('person') !== -1 || n.indexOf('persona') !== -1) {
+        return { borderColor: 'border-blue-400/30', textColor: 'text-blue-400', icon: 'person' };
+    }
+    if (n.indexOf('weapon') !== -1 || n.indexOf('armed') !== -1 || n.indexOf('arma') !== -1) {
+        return { borderColor: 'border-red-500/30', textColor: 'text-red-500', icon: 'warning' };
+    }
+    if (n.indexOf('police') !== -1 || n.indexOf('autoridad') !== -1) {
+        return { borderColor: 'border-cyan-400/30', textColor: 'text-cyan-400', icon: 'local_police' };
+    }
+    if (n.indexOf('prison') !== -1 || n.indexOf('preso') !== -1) {
+        return { borderColor: 'border-purple-400/30', textColor: 'text-purple-400', icon: 'lock' };
+    }
+    if (n.indexOf('behavior') !== -1 || n.indexOf('assault') !== -1 || n.indexOf('fight') !== -1 || n.indexOf('kidnap') !== -1 || n.indexOf('terror') !== -1 || n.indexOf('robbery') !== -1) {
+        return { borderColor: 'border-amber-400/30', textColor: 'text-amber-400', icon: 'gavel' };
+    }
+    return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
+}
+
+function renderGroupedCards(classGroups, classCounts) {
+    var groupNames = Object.keys(classGroups);
+    if (groupNames.length === 0) return '<div class="text-center py-8 text-on-surface-variant">No hay grupos disponibles</div>';
+
+    var cols = optimalGridCols(groupNames.length, 2, 6);
+    var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
+
+    groupNames.forEach(function (gName) {
+        var g = classGroups[gName];
+        var total = g.count || 0;
+        var style = getGroupStyle(gName);
+
+        if (total === 0) {
+            html += '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
+                '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
+                '<span class="material-symbols-outlined text-sm">lock</span> ' + gName +
+                '</span>' +
+                '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
+                '</div>';
+        } else {
+            var detectedList = g.detected_natives || {};
+            var subItems = Object.keys(detectedList).map(function (n) {
+                return '<div class="flex items-center justify-between gap-2">' +
+                    '<span class="text-label-xs text-on-surface-variant/80 truncate">' + n + '</span>' +
+                    '<span class="text-label-xs font-bold ' + style.textColor + '">×' + detectedList[n] + '</span>' +
+                    '</div>';
+            }).join('');
+
+            html += '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + style.borderColor + '">' +
+                '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
+                '<span class="material-symbols-outlined text-sm ' + style.textColor + '">' + style.icon + '</span>' + gName +
+                '</span>' +
+                '<span class="font-display-lg text-headline-lg ' + style.textColor + ' text-center">' + total + '</span>' +
+                (subItems ? '<div class="border-t border-white/10 pt-2 mt-1 flex flex-col gap-1">' + subItems + '</div>' : '') +
+                '</div>';
+        }
+    });
+
+    html += '</div>';
+    return html;
+}
+
+function renderIndividualCards(modelClasses, classCounts) {
+    if (modelClasses.length === 0) return '<div class="text-center py-8 text-on-surface-variant">No hay clases disponibles</div>';
+
+    var cols = optimalGridCols(modelClasses.length, 2, 6);
+    var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
+
+    modelClasses.forEach(function (cls) {
+        var count = classCounts[cls] || 0;
+        var nameLower = cls.toLowerCase();
+        var style = getGroupStyle(nameLower);
+
+        if (count === 0) {
+            html += '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
+                '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
+                '<span class="material-symbols-outlined text-sm">lock</span> ' + cls +
+                '</span>' +
+                '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
+                '</div>';
+        } else {
+            html += '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + style.borderColor + '">' +
+                '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
+                '<span class="material-symbols-outlined text-sm ' + style.textColor + '">' + style.icon + '</span>' + cls +
+                '</span>' +
+                '<span class="font-display-lg text-headline-lg ' + style.textColor + ' text-center">' + count + '</span>' +
+                '</div>';
+        }
+    });
+
+    html += '</div>';
+    return html;
+}
+
+var _currentViewMode = 'grouped';
+var _currentData = null;
+
 async function viewRecordCards(id, type) {
     var modal = document.getElementById('cards-detail-modal');
     var content = document.getElementById('cards-detail-content');
     var title = document.getElementById('cards-detail-title');
+    var toggle = document.getElementById('cards-view-toggle');
     if (!modal || !content) return;
 
-    title.textContent = 'Class Cards — Registro #' + id + ' (' + type + ')';
+    title.textContent = 'Lista de Clases — Registro #' + id + ' (' + type + ')';
+    if (toggle) toggle.style.display = 'flex';
     content.innerHTML = '<div class="text-center py-8 text-on-surface-variant">Cargando...</div>';
     modal.classList.remove('hidden');
     modal.classList.add('flex');
@@ -283,65 +382,49 @@ async function viewRecordCards(id, type) {
         var resp = await fetch('/record-detail/' + type + '/' + id);
         if (!resp.ok) throw new Error('Error al obtener detalle');
         var data = await resp.json();
+        _currentData = data;
 
-        var classCounts = data.class_counts || {};
-        var modelClasses = data.model_classes || Object.keys(classCounts);
-
-        if (modelClasses.length === 0) {
-            content.innerHTML = '<div class="text-center py-8 text-on-surface-variant">No hay clases disponibles para este registro</div>';
-            return;
-        }
-
-        var cols = optimalGridCols(modelClasses.length, 2, 6);
-        var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
-
-        modelClasses.forEach(function (cls) {
-            var count = classCounts[cls] || 0;
-            var nameLower = cls.toLowerCase();
-            var borderColor = 'border-primary-container/30';
-            var textColor = 'text-primary';
-            var icon = 'category';
-
-            if (nameLower.indexOf('person') !== -1 || nameLower.indexOf('persona') !== -1) {
-                borderColor = 'border-blue-400/30';
-                textColor = 'text-blue-400';
-                icon = 'person';
-            } else if (nameLower.indexOf('knife') !== -1 || nameLower.indexOf('weapon') !== -1 || nameLower.indexOf('gun') !== -1 || nameLower.indexOf('pistol') !== -1 || nameLower.indexOf('rifle') !== -1 || nameLower.indexOf('arma') !== -1 || nameLower.indexOf('cuchillo') !== -1 || nameLower.indexOf('fuego') !== -1) {
-                borderColor = 'border-red-500/30';
-                textColor = 'text-red-500';
-                icon = 'warning';
-            }
-
-            if (count === 0) {
-                html += '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
-                    '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
-                    '<span class="material-symbols-outlined text-sm">lock</span> ' + cls +
-                    '</span>' +
-                    '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
-                    '</div>';
-            } else {
-                html += '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + borderColor + '">' +
-                    '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
-                    '<span class="material-symbols-outlined text-sm ' + textColor + '">' + icon + '</span>' + cls +
-                    '</span>' +
-                    '<span class="font-display-lg text-headline-lg ' + textColor + ' text-center">' + count + '</span>' +
-                    '</div>';
-            }
-        });
-
-        html += '</div>';
-        content.innerHTML = html;
+        renderCurrentView();
     } catch (e) {
         content.innerHTML = '<div class="text-center py-8 text-error">Error: ' + e.message + '</div>';
     }
 }
 
+function renderCurrentView() {
+    var content = document.getElementById('cards-detail-content');
+    if (!content || !_currentData) return;
+
+    var classGroups = _currentData.class_groups || {};
+    var classCounts = _currentData.class_counts || {};
+    var modelClasses = _currentData.model_classes || Object.keys(classCounts);
+
+    if (_currentViewMode === 'individual') {
+        content.innerHTML = renderIndividualCards(modelClasses, classCounts);
+    } else {
+        content.innerHTML = renderGroupedCards(classGroups, classCounts);
+    }
+}
+
+function setCardsView(mode) {
+    _currentViewMode = mode;
+    var groupedBtn = document.getElementById('view-grouped-btn');
+    var individualBtn = document.getElementById('view-individual-btn');
+    if (groupedBtn) groupedBtn.classList.toggle('bg-primary-container', mode === 'grouped');
+    if (groupedBtn) groupedBtn.classList.toggle('bg-white/10', mode !== 'grouped');
+    if (individualBtn) individualBtn.classList.toggle('bg-primary-container', mode === 'individual');
+    if (individualBtn) individualBtn.classList.toggle('bg-white/10', mode !== 'individual');
+    renderCurrentView();
+}
+
 function closeCardsDetailModal() {
     var modal = document.getElementById('cards-detail-modal');
+    var toggle = document.getElementById('cards-view-toggle');
     if (modal) {
         modal.classList.add('hidden');
         modal.classList.remove('flex');
     }
+    if (toggle) toggle.style.display = 'none';
+    _currentData = null;
 }
 
 function initLiveSearch() {

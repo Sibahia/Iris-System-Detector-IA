@@ -34,8 +34,9 @@
   },
   "suspicious.pt": {
     "class_groups": {
-      "person": [5, 6, 7],
-      "weapon": [],
+      "person": [5],
+      "police": [6],
+      "prisoner": [7],
       "armed_person": [3, 4],
       "behavior_assault": [0],
       "behavior_fight": [1],
@@ -45,8 +46,9 @@
     },
     "armed_person_ids": [3, 4],
     "anomaly_map": {
-      "weapon": { "type": "ARMA_DETECTADA", "risk": "critico" },
       "armed_person": { "type": "PERSONA_ARMADA", "risk": "critico" },
+      "police": { "type": "AUTORIDAD_DETECTADA", "risk": "bajo" },
+      "prisoner": { "type": "PRESO_DETECTADO", "risk": "medio" },
       "behavior_assault": { "type": "ASALTO", "risk": "alto" },
       "behavior_fight": { "type": "PELEA", "risk": "alto" },
       "behavior_kidnap": { "type": "SECUESTRO", "risk": "critico" },
