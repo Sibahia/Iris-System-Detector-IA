@@ -195,6 +195,7 @@ erDiagram
         INTEGER objects_count
         TEXT anomaly_types "Desnormalizado (JSON)"
         TEXT detected_classes "Desnormalizado (JSON)"
+        TEXT class_counts "Desnormalizado (JSON)"
         INTEGER processing_time_ms
         DATETIME created_at
     }
@@ -237,7 +238,7 @@ La base de datos SQLite (`anomaly_history.db`) consta de 4 tablas:
 > Para optimizar el rendimiento y la escalabilidad del sistema, se utiliza un enfoque híbrido de persistencia:
 >
 > 1. **Relacional (Normalizado 1:N) para Videos:** Dado que los videos se analizan secuencialmente frame a frame, se registran eventos individuales en `anomaly_events`. Esto permite trazar curvas de anomalías temporales y auditar detalladamente qué pasó en cada segundo.
-> 2. **Documental/Desnormalizado (JSON) para Imágenes:** Una imagen es un evento único y estático. Guardar detecciones en una tabla separada agregaría joins innecesarios. Se almacena toda la información de manera autocontenida usando cadenas JSON en `anomaly_types` y `detected_classes`.
+ > 2. **Documental/Desnormalizado (JSON) para Imágenes:** Una imagen es un evento único y estático. Guardar detecciones en una tabla separada agregaría joins innecesarios. Se almacena toda la información de manera autocontenida usando cadenas JSON en `anomaly_types`, `detected_classes`, y `class_counts`.
 > 3. **Documental/Desnormalizado (JSON) para Streams:** El procesamiento de transmisiones en vivo ocurre a altos FPS continuos. Almacenar un registro por frame en `anomaly_events` causaría un crecimiento exponencial y degradación del disco. Al finalizar la sesión, se persiste únicamente el resumen acumulado en `streams` con sus clases agrupadas en formato JSON (`class_counts`, `anomaly_types`).
 ---
 
