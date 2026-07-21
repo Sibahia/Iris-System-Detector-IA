@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+import threading
 from ultralytics import YOLO
 from typing import Dict, Any, Optional
 import os
@@ -268,6 +269,7 @@ class YOLOImageDetector:
 
 _image_detector_instance = None
 _image_detector_model_path = None
+_image_detector_lock = threading.Lock()
 
 
 def get_image_detector(
@@ -277,12 +279,13 @@ def get_image_detector(
     device: str = "cpu"
 ) -> YOLOImageDetector:
     global _image_detector_instance, _image_detector_model_path
-    if _image_detector_instance is None or model_path != _image_detector_model_path:
-        _image_detector_instance = YOLOImageDetector(
-            model_path=model_path,
-            default_confidence=default_confidence,
-            crowd_threshold=crowd_threshold,
-            device=device
-        )
-        _image_detector_model_path = model_path
-    return _image_detector_instance
+    with _image_detector_lock:
+        if _image_detector_instance is None or model_path != _image_detector_model_path:
+            _image_detector_instance = YOLOImageDetector(
+                model_path=model_path,
+                default_confidence=default_confidence,
+                crowd_threshold=crowd_threshold,
+                device=device
+            )
+            _image_detector_model_path = model_path
+        return _image_detector_instance

@@ -9,7 +9,7 @@ from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request, Header
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 import asyncio
@@ -161,6 +161,7 @@ def validate_upload(content: bytes, filename: str, content_type: str, expected_t
 async def lifespan(app: FastAPI):
     # Evento de inicialización (Startup)
     init_database()
+    _cleanup_expired_tasks()
     logger.info("Application started successfully via lifespan context")
     yield
     # Aquí puedes agregar lógica de cierre (Shutdown) si es necesario en el futuro
@@ -225,10 +226,57 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 TASKS = {}
+TASKS_TTL_SECONDS = 3600
+TASKS_MAX_ACTIVE = 100
+
+
+def _cleanup_expired_tasks():
+    """Remove completed/failed tasks older than TASKS_TTL_SECONDS"""
+    now = time.time()
+    expired = [
+        tid for tid, t in TASKS.items()
+        if t.get("status") in ("completed", "failed")
+        and now - t.get("created_at", now) > TASKS_TTL_SECONDS
+    ]
+    for tid in expired:
+        del TASKS[tid]
+
+    expired_keys = [
+        k for k, v in _idempotency_cache.items()
+        if now - v.get("created_at", now) > IDEMPOTENCY_TTL
+    ]
+    for k in expired_keys:
+        del _idempotency_cache[k]
+
+    active = [tid for tid, t in TASKS.items() if t.get("status") in ("queued", "processing")]
+    while len(active) > TASKS_MAX_ACTIVE:
+        oldest = active.pop(0)
+        TASKS[oldest]["status"] = "failed"
+        TASKS[oldest]["error"] = "Task evicted: too many active tasks"
+
+    timer = threading.Timer(60, _cleanup_expired_tasks)
+    timer.daemon = True
+    timer.start()
 
 _video_semaphore = threading.Semaphore(2)
 _image_semaphore = threading.Semaphore(1)
 _stream_semaphore = threading.Semaphore(2)
+
+IDEMPOTENCY_TTL = 3600
+_idempotency_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_cached_result(key: str):
+    entry = _idempotency_cache.get(key)
+    if entry and time.time() - entry["created_at"] < IDEMPOTENCY_TTL:
+        return entry["result"]
+    if entry:
+        del _idempotency_cache[key]
+    return None
+
+
+def _store_result(key: str, result: Any):
+    _idempotency_cache[key] = {"result": result, "created_at": time.time()}
 
 
 def run_analysis_task(
@@ -240,7 +288,10 @@ def run_analysis_task(
     original_filename: str,
     model_name: Optional[str] = None,
 ):
-    _video_semaphore.acquire()
+    if not _video_semaphore.acquire(timeout=30):
+        TASKS[task_id]["status"] = "failed"
+        TASKS[task_id]["error"] = "Servidor ocupado, todos los slots de video ocupados. Intente nuevamente."
+        return
 
     try:
         from detection.yolo_detector import get_yolo_detector
@@ -480,7 +531,13 @@ async def analyze_yolo(
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
     model_name: Optional[str] = Query(None),
+    x_idempotency_key: Optional[str] = Header(None)
 ):
+    if x_idempotency_key:
+        cached = _get_cached_result(x_idempotency_key)
+        if cached is not None:
+            return cached
+
     safe_filename = os.path.basename(file.filename or "video.mp4")
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
@@ -520,7 +577,7 @@ async def analyze_yolo(
     output_filename = f"yolo_{task_id}.mp4"
     output_path = os.path.join(VIDEOS_DIR, output_filename)
 
-    TASKS[task_id] = {"status": "queued", "progress": 0, "result": None}
+    TASKS[task_id] = {"status": "queued", "progress": 0, "result": None, "created_at": time.time()}
 
     background_tasks.add_task(
         run_analysis_task,
@@ -533,7 +590,11 @@ async def analyze_yolo(
         model_name,
     )
 
-    return {"task_id": task_id}
+    result = {"task_id": task_id}
+    if x_idempotency_key:
+        _store_result(x_idempotency_key, result)
+
+    return result
 
 
 @app.get("/tasks/{task_id}")
@@ -585,8 +646,14 @@ async def analyze_image(
     file: UploadFile = File(...),
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
-    model_name: Optional[str] = Query(None)
+    model_name: Optional[str] = Query(None),
+    x_idempotency_key: Optional[str] = Header(None)
 ):
+    if x_idempotency_key:
+        cached = _get_cached_result(x_idempotency_key)
+        if cached is not None:
+            return cached
+
     # Validar y resolver que modelo usar
     selected_model = model_name if model_name else DEFAULT_MODEL
     if selected_model not in AVAILABLE_MODELS:
@@ -675,6 +742,9 @@ async def analyze_image(
             raw_results.get("class_counts", {}),
             getattr(detector, 'model_class_names', {})
         )
+
+        if x_idempotency_key:
+            _store_result(x_idempotency_key, raw_results)
 
         return raw_results
 
