@@ -7,7 +7,7 @@ services:
     env_file:
       - .env
     volumes:
-      - ./src/storage/anomaly_history.db:/app/src/storage/anomaly_history.db
+      - ./src/storage:/app/src/storage
       - ./static:/app/static
       - ./templates:/app/templates
     restart: unless-stopped
