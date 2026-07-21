@@ -264,3 +264,25 @@ class YOLOImageDetector:
             "detected_classes": list(set([d["class_name"] for d in detections["all_boxes"]])),
             "processing_time_ms": int(processing_time * 1000)
         }
+
+
+_image_detector_instance = None
+_image_detector_model_path = None
+
+
+def get_image_detector(
+    model_path: str,
+    default_confidence: float = 0.5,
+    crowd_threshold: int = 5,
+    device: str = "cpu"
+) -> YOLOImageDetector:
+    global _image_detector_instance, _image_detector_model_path
+    if _image_detector_instance is None or model_path != _image_detector_model_path:
+        _image_detector_instance = YOLOImageDetector(
+            model_path=model_path,
+            default_confidence=default_confidence,
+            crowd_threshold=crowd_threshold,
+            device=device
+        )
+        _image_detector_model_path = model_path
+    return _image_detector_instance

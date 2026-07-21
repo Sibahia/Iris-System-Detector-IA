@@ -12,7 +12,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import threading
 from pydantic import BaseModel
 import logging
 import mimetypes
@@ -27,7 +28,7 @@ CROWD_THRESHOLD = int(os.getenv("CROWD_THRESHOLD", "5"))
 LOITER_THRESHOLD = float(os.getenv("LOITER_THRESHOLD", "10.0"))
 EMAIL_CONFIG = env_value in ("true", "1", "yes")
 SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "500"))
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "300"))
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -177,12 +178,17 @@ mimetypes.add_type("video/x-msvideo", ".avi")
 mimetypes.add_type("image/jpeg", ".jpg")
 mimetypes.add_type("image/png", ".png")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
@@ -220,6 +226,11 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 TASKS = {}
 
+_video_semaphore = threading.Semaphore(2)
+_image_semaphore = threading.Semaphore(1)
+_stream_semaphore = threading.Semaphore(2)
+
+
 def run_analysis_task(
     task_id: str,
     file_path: str,
@@ -229,8 +240,10 @@ def run_analysis_task(
     original_filename: str,
     model_name: Optional[str] = None,
 ):
+    _video_semaphore.acquire()
+
     try:
-        from detection.yolo_detector import YOLOAnomalyDetector
+        from detection.yolo_detector import get_yolo_detector
 
         TASKS[task_id]["status"] = "processing"
 
@@ -238,7 +251,7 @@ def run_analysis_task(
             TASKS[task_id]["progress"] = p
 
         model_path = os.path.join("models", model_name) if model_name else None
-        yolo = YOLOAnomalyDetector(
+        yolo = get_yolo_detector(
             model_size=MODEL_SIZE,
             model_path=model_path,
             device=DEVICE,
@@ -331,6 +344,7 @@ def run_analysis_task(
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
+        _video_semaphore.release()
         if os.path.exists(file_path):
             try:
                 os.unlink(file_path)
@@ -618,18 +632,26 @@ async def analyze_image(
     output_path = os.path.join(IMAGES_DIR, output_filename)
 
     try:
-        from detection.image_detector import YOLOImageDetector
-        
-        # Instanciar el detector estatico modular apuntando a models/
-        detector = YOLOImageDetector(
-            model_path=model_path,
-            default_confidence=confidence,
-            crowd_threshold=crowd_threshold,
-            device=DEVICE
-        )
+        from detection.image_detector import get_image_detector
 
-        # Procesar y renderizar la imagen
-        raw_results = detector.process_image(temp_input.name, output_path, conf_override=confidence)
+        if not _image_semaphore.locked():
+            _image_semaphore.acquire()
+        else:
+            raise HTTPException(503, "Servidor ocupado, intente nuevamente")
+
+        try:
+            detector = get_image_detector(
+                model_path=model_path,
+                default_confidence=confidence,
+                crowd_threshold=crowd_threshold,
+                device=DEVICE
+            )
+
+            raw_results = await asyncio.to_thread(
+                detector.process_image, temp_input.name, output_path, confidence
+            )
+        finally:
+            _image_semaphore.release()
         
         # Guardar en base de datos
         db_id = save_image_analysis(raw_results)
@@ -658,6 +680,8 @@ async def analyze_image(
 
         return raw_results
 
+    except HTTPException:
+        raise
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.error(f"Image analysis failed [{error_id}]: {e}", exc_info=True)
@@ -908,6 +932,9 @@ async def live_page():
 async def start_live_stream(data: dict):
     from detection.live_stream import create_stream
 
+    if _stream_semaphore.locked():
+        raise HTTPException(503, "Máximo de streams alcanzado, cierre uno primero")
+
     stream_id = data.get("stream_id", "main")
     source = data.get("source", 0)
     threshold = data.get("crowd_threshold", 3)
@@ -920,12 +947,17 @@ async def start_live_stream(data: dict):
     if isinstance(source, str) and source.isdigit():
         source = int(source)
 
+    _stream_semaphore.acquire()
+
     stream = create_stream(
         stream_id=stream_id, source=source, crowd_threshold=threshold,
         confidence=confidence, model_name=model_name,
     )
 
     success = stream.start()
+
+    if not success:
+        _stream_semaphore.release()
 
     return {"success": success, "stream_id": stream_id}
 
@@ -944,6 +976,8 @@ async def stop_live_stream(data: dict):
             logger.error(f"Failed to save stream summary: {e}")
 
     success = stop_stream(stream_id)
+    if success:
+        _stream_semaphore.release()
 
     return {"success": success}
 

@@ -11,3 +11,14 @@ docs/
 tests/
 .vscode/
 .idea/
+node_modules/
+package.json
+package-lock.json
+diagramas/
+build new interface/
+.pytest_cache/
+requirements-old.txt
+requirements-test.txt
+run.sh
+class.py
+.env.example

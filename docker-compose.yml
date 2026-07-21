@@ -11,3 +11,12 @@ services:
       - ./static:/app/static
       - ./templates:/app/templates
     restart: unless-stopped
+    user: "1000:1000"
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+          cpus: "3.0"
+        reservations:
+          memory: 512M
+          cpus: "0.5"
