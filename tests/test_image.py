@@ -42,13 +42,13 @@ class TestImageDetectionAPI:
         }
 
     @patch("app.save_image_analysis")
-    @patch("detection.image_detector.YOLOImageDetector")
-    def test_analyze_image_endpoint_success(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_normal):
+    @patch("detection.image_detector.get_image_detector")
+    def test_analyze_image_endpoint_success(self, mock_get_detector, mock_save_db, mock_image_file, mock_detector_success_normal):
         """Prueba que el endpoint /analyze-image procese una imagen válida correctamente"""
         
         mock_detector_instance = MagicMock()
         mock_detector_instance.process_image.return_value = mock_detector_success_normal
-        mock_detector_cls.return_value = mock_detector_instance
+        mock_get_detector.return_value = mock_detector_instance
         
         mock_save_db.return_value = 42
 
@@ -67,13 +67,13 @@ class TestImageDetectionAPI:
         assert "annotated_image_url" in json_data
 
     @patch("app.save_image_analysis")
-    @patch("detection.image_detector.YOLOImageDetector")
-    def test_analyze_image_endpoint_critical_risk(self, mock_detector_cls, mock_save_db, mock_image_file, mock_detector_success_critical):
+    @patch("detection.image_detector.get_image_detector")
+    def test_analyze_image_endpoint_critical_risk(self, mock_get_detector, mock_save_db, mock_image_file, mock_detector_success_critical):
         """Prueba que calcule el 100% de riesgo si el nivel es crítico"""
         
         mock_detector_instance = MagicMock()
         mock_detector_instance.process_image.return_value = mock_detector_success_critical
-        mock_detector_cls.return_value = mock_detector_instance
+        mock_get_detector.return_value = mock_detector_instance
         mock_save_db.return_value = 43
 
         response = client.post(

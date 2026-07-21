@@ -634,9 +634,7 @@ async def analyze_image(
     try:
         from detection.image_detector import get_image_detector
 
-        if not _image_semaphore.locked():
-            _image_semaphore.acquire()
-        else:
+        if not _image_semaphore.acquire(blocking=False):
             raise HTTPException(503, "Servidor ocupado, intente nuevamente")
 
         try:
@@ -932,7 +930,7 @@ async def live_page():
 async def start_live_stream(data: dict):
     from detection.live_stream import create_stream
 
-    if _stream_semaphore.locked():
+    if not _stream_semaphore.acquire(blocking=False):
         raise HTTPException(503, "Máximo de streams alcanzado, cierre uno primero")
 
     stream_id = data.get("stream_id", "main")
@@ -946,8 +944,6 @@ async def start_live_stream(data: dict):
 
     if isinstance(source, str) and source.isdigit():
         source = int(source)
-
-    _stream_semaphore.acquire()
 
     stream = create_stream(
         stream_id=stream_id, source=source, crowd_threshold=threshold,
