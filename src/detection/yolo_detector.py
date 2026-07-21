@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import imageio
+import threading
 from ultralytics import YOLO
 from typing import List, Dict, Any, Tuple, Optional
 from collections import defaultdict
@@ -518,6 +519,7 @@ class YOLOAnomalyDetector:
 
 _detector_instance = None
 _detector_model_path = None
+_detector_lock = threading.Lock()
 
 
 def get_yolo_detector(
@@ -529,14 +531,15 @@ def get_yolo_detector(
     loiter_threshold_seconds: float = 10.0,
 ) -> YOLOAnomalyDetector:
     global _detector_instance, _detector_model_path
-    if _detector_instance is None or model_path != _detector_model_path:
-        _detector_instance = YOLOAnomalyDetector(
-            model_size=model_size,
-            model_path=model_path,
-            device=device,
-            confidence_threshold=confidence_threshold,
-            crowd_threshold=crowd_threshold,
-            loiter_threshold_seconds=loiter_threshold_seconds,
-        )
-        _detector_model_path = model_path
-    return _detector_instance
+    with _detector_lock:
+        if _detector_instance is None or model_path != _detector_model_path:
+            _detector_instance = YOLOAnomalyDetector(
+                model_size=model_size,
+                model_path=model_path,
+                device=device,
+                confidence_threshold=confidence_threshold,
+                crowd_threshold=crowd_threshold,
+                loiter_threshold_seconds=loiter_threshold_seconds,
+            )
+            _detector_model_path = model_path
+        return _detector_instance

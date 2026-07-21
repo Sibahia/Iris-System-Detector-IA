@@ -9,10 +9,11 @@ from typing import List, Optional, Dict, Any
 from contextlib import asynccontextmanager
 import uvicorn
 from dotenv import load_dotenv
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request
+from fastapi import FastAPI, File, UploadFile, HTTPException, Query, BackgroundTasks, Request, Header
 from fastapi.responses import JSONResponse, HTMLResponse, FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from fastapi.middleware.cors import CORSMiddleware
+import asyncio
+import threading
 from pydantic import BaseModel
 import logging
 import mimetypes
@@ -27,7 +28,7 @@ CROWD_THRESHOLD = int(os.getenv("CROWD_THRESHOLD", "5"))
 LOITER_THRESHOLD = float(os.getenv("LOITER_THRESHOLD", "10.0"))
 EMAIL_CONFIG = env_value in ("true", "1", "yes")
 SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
-MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "500"))
+MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "300"))
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
@@ -53,6 +54,7 @@ from storage.database import (
 )
 
 from logs.memory_handler import MemoryLogHandler
+from detection.model_utils import get_native_class_names_for_model, compute_class_groups
 
 class JSONFormatter(logging.Formatter):
     def format(self, record):
@@ -159,13 +161,14 @@ def validate_upload(content: bytes, filename: str, content_type: str, expected_t
 async def lifespan(app: FastAPI):
     # Evento de inicialización (Startup)
     init_database()
+    _cleanup_expired_tasks()
     logger.info("Application started successfully via lifespan context")
     yield
     # Aquí puedes agregar lógica de cierre (Shutdown) si es necesario en el futuro
     logger.info("Application shutting down")
 
 app = FastAPI(
-    title="CCTV Anomaly Detection",
+    title="Iris System Detector",
     description="YOLOv8/YOLO11-based video and image anomaly detection",
     version="4.0.0",
     lifespan=lifespan
@@ -176,12 +179,17 @@ mimetypes.add_type("video/x-msvideo", ".avi")
 mimetypes.add_type("image/jpeg", ".jpg")
 mimetypes.add_type("image/png", ".png")
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    return response
+
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
@@ -218,6 +226,58 @@ async def global_exception_handler(request: Request, exc: Exception):
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 TASKS = {}
+TASKS_TTL_SECONDS = 3600
+TASKS_MAX_ACTIVE = 100
+
+
+def _cleanup_expired_tasks():
+    """Remove completed/failed tasks older than TASKS_TTL_SECONDS"""
+    now = time.time()
+    expired = [
+        tid for tid, t in TASKS.items()
+        if t.get("status") in ("completed", "failed")
+        and now - t.get("created_at", now) > TASKS_TTL_SECONDS
+    ]
+    for tid in expired:
+        del TASKS[tid]
+
+    expired_keys = [
+        k for k, v in _idempotency_cache.items()
+        if now - v.get("created_at", now) > IDEMPOTENCY_TTL
+    ]
+    for k in expired_keys:
+        del _idempotency_cache[k]
+
+    active = [tid for tid, t in TASKS.items() if t.get("status") in ("queued", "processing")]
+    while len(active) > TASKS_MAX_ACTIVE:
+        oldest = active.pop(0)
+        TASKS[oldest]["status"] = "failed"
+        TASKS[oldest]["error"] = "Task evicted: too many active tasks"
+
+    timer = threading.Timer(60, _cleanup_expired_tasks)
+    timer.daemon = True
+    timer.start()
+
+_video_semaphore = threading.Semaphore(2)
+_image_semaphore = threading.Semaphore(1)
+_stream_semaphore = threading.Semaphore(2)
+
+IDEMPOTENCY_TTL = 3600
+_idempotency_cache: Dict[str, Dict[str, Any]] = {}
+
+
+def _get_cached_result(key: str):
+    entry = _idempotency_cache.get(key)
+    if entry and time.time() - entry["created_at"] < IDEMPOTENCY_TTL:
+        return entry["result"]
+    if entry:
+        del _idempotency_cache[key]
+    return None
+
+
+def _store_result(key: str, result: Any):
+    _idempotency_cache[key] = {"result": result, "created_at": time.time()}
+
 
 def run_analysis_task(
     task_id: str,
@@ -228,8 +288,13 @@ def run_analysis_task(
     original_filename: str,
     model_name: Optional[str] = None,
 ):
+    if not _video_semaphore.acquire(timeout=30):
+        TASKS[task_id]["status"] = "failed"
+        TASKS[task_id]["error"] = "Servidor ocupado, todos los slots de video ocupados. Intente nuevamente."
+        return
+
     try:
-        from detection.yolo_detector import YOLOAnomalyDetector
+        from detection.yolo_detector import get_yolo_detector
 
         TASKS[task_id]["status"] = "processing"
 
@@ -237,7 +302,7 @@ def run_analysis_task(
             TASKS[task_id]["progress"] = p
 
         model_path = os.path.join("models", model_name) if model_name else None
-        yolo = YOLOAnomalyDetector(
+        yolo = get_yolo_detector(
             model_size=MODEL_SIZE,
             model_path=model_path,
             device=DEVICE,
@@ -316,7 +381,12 @@ def run_analysis_task(
             "risk_percentage": risk_percentage,
             "model_name": model_name or "default",
             "class_counts": stats.get("class_counts", {}),
-            "model_classes": list(yolo.model_class_names.values()) if hasattr(yolo, 'model_class_names') else []
+            "model_classes": list(yolo.model_class_names.values()) if hasattr(yolo, 'model_class_names') else [],
+            "class_groups": compute_class_groups(
+                model_name or "default",
+                stats.get("class_counts", {}),
+                getattr(yolo, 'model_class_names', {})
+            )
         }
 
     except Exception as e:
@@ -325,6 +395,7 @@ def run_analysis_task(
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
+        _video_semaphore.release()
         if os.path.exists(file_path):
             try:
                 os.unlink(file_path)
@@ -460,7 +531,13 @@ async def analyze_yolo(
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
     model_name: Optional[str] = Query(None),
+    x_idempotency_key: Optional[str] = Header(None)
 ):
+    if x_idempotency_key:
+        cached = _get_cached_result(x_idempotency_key)
+        if cached is not None:
+            return cached
+
     safe_filename = os.path.basename(file.filename or "video.mp4")
 
     temp = tempfile.NamedTemporaryFile(delete=False, suffix=".mp4")
@@ -500,7 +577,7 @@ async def analyze_yolo(
     output_filename = f"yolo_{task_id}.mp4"
     output_path = os.path.join(VIDEOS_DIR, output_filename)
 
-    TASKS[task_id] = {"status": "queued", "progress": 0, "result": None}
+    TASKS[task_id] = {"status": "queued", "progress": 0, "result": None, "created_at": time.time()}
 
     background_tasks.add_task(
         run_analysis_task,
@@ -513,7 +590,11 @@ async def analyze_yolo(
         model_name,
     )
 
-    return {"task_id": task_id}
+    result = {"task_id": task_id}
+    if x_idempotency_key:
+        _store_result(x_idempotency_key, result)
+
+    return result
 
 
 @app.get("/tasks/{task_id}")
@@ -565,8 +646,14 @@ async def analyze_image(
     file: UploadFile = File(...),
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
-    model_name: Optional[str] = Query(None)
+    model_name: Optional[str] = Query(None),
+    x_idempotency_key: Optional[str] = Header(None)
 ):
+    if x_idempotency_key:
+        cached = _get_cached_result(x_idempotency_key)
+        if cached is not None:
+            return cached
+
     # Validar y resolver que modelo usar
     selected_model = model_name if model_name else DEFAULT_MODEL
     if selected_model not in AVAILABLE_MODELS:
@@ -612,18 +699,24 @@ async def analyze_image(
     output_path = os.path.join(IMAGES_DIR, output_filename)
 
     try:
-        from detection.image_detector import YOLOImageDetector
-        
-        # Instanciar el detector estatico modular apuntando a models/
-        detector = YOLOImageDetector(
-            model_path=model_path,
-            default_confidence=confidence,
-            crowd_threshold=crowd_threshold,
-            device=DEVICE
-        )
+        from detection.image_detector import get_image_detector
 
-        # Procesar y renderizar la imagen
-        raw_results = detector.process_image(temp_input.name, output_path, conf_override=confidence)
+        if not _image_semaphore.acquire(blocking=False):
+            raise HTTPException(503, "Servidor ocupado, intente nuevamente")
+
+        try:
+            detector = get_image_detector(
+                model_path=model_path,
+                default_confidence=confidence,
+                crowd_threshold=crowd_threshold,
+                device=DEVICE
+            )
+
+            raw_results = await asyncio.to_thread(
+                detector.process_image, temp_input.name, output_path, confidence
+            )
+        finally:
+            _image_semaphore.release()
         
         # Guardar en base de datos
         db_id = save_image_analysis(raw_results)
@@ -644,9 +737,19 @@ async def analyze_image(
         raw_results["risk_percentage"] = risk_pct
         raw_results["crowd_threshold"] = crowd_threshold
         raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
+        raw_results["class_groups"] = compute_class_groups(
+            raw_results.get("model_used", ""),
+            raw_results.get("class_counts", {}),
+            getattr(detector, 'model_class_names', {})
+        )
+
+        if x_idempotency_key:
+            _store_result(x_idempotency_key, raw_results)
 
         return raw_results
 
+    except HTTPException:
+        raise
     except Exception as e:
         error_id = str(uuid.uuid4())
         logger.error(f"Image analysis failed [{error_id}]: {e}", exc_info=True)
@@ -799,7 +902,15 @@ async def get_record_detail(record_type: str, record_id: int):
                     name = box.get("class_name", "unknown")
                     class_counts[name] = class_counts.get(name, 0) + 1
         record["class_counts"] = class_counts
-        record["model_classes"] = list(class_counts.keys()) if class_counts else []
+
+        model_name = record.get("model_name") or record.get("model_used", "")
+        native_names = get_native_class_names_for_model(model_name)
+        if not native_names:
+            native_names = list(class_counts.keys())
+        record["model_classes"] = native_names
+
+        names_map = {i: name for i, name in enumerate(native_names)}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     elif record_type == "image":
@@ -808,19 +919,18 @@ async def get_record_detail(record_type: str, record_id: int):
             raise HTTPException(404, "Image not found")
         record["record_type"] = "image"
         model_name = record.get("model_used", "")
-        try:
-            from detection.class_mapper import classify_classes
-            model_names_map = {}
-            if model_name:
-                model_path = os.path.join("models", model_name)
-                if os.path.exists(model_path):
-                    from ultralytics import YOLO
-                    temp_model = YOLO(model_path)
-                    model_names_map = temp_model.names
-            mapping = classify_classes(model_names_map, model_name=model_name)
-            record["model_classes"] = list(mapping["class_names"].values())
-        except Exception:
-            record["model_classes"] = record.get("detected_classes", [])
+        native_names = get_native_class_names_for_model(model_name)
+        if not native_names:
+            native_names = record.get("detected_classes", [])
+        record["model_classes"] = native_names
+        names_map = {i: name for i, name in enumerate(native_names)}
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     elif record_type == "stream":
@@ -828,6 +938,18 @@ async def get_record_detail(record_type: str, record_id: int):
         if not record:
             raise HTTPException(404, "Stream not found")
         record["record_type"] = "stream"
+        model_name = record.get("model_name") or record.get("model_used", "")
+        native_names = get_native_class_names_for_model(model_name)
+        record["model_classes"] = native_names
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
+        record["class_counts"] = class_counts
+        names_map = {i: name for i, name in enumerate(native_names)}
+        record["class_groups"] = compute_class_groups(model_name, class_counts, names_map)
         return record
 
     else:
@@ -878,6 +1000,9 @@ async def live_page():
 async def start_live_stream(data: dict):
     from detection.live_stream import create_stream
 
+    if not _stream_semaphore.acquire(blocking=False):
+        raise HTTPException(503, "Máximo de streams alcanzado, cierre uno primero")
+
     stream_id = data.get("stream_id", "main")
     source = data.get("source", 0)
     threshold = data.get("crowd_threshold", 3)
@@ -897,6 +1022,9 @@ async def start_live_stream(data: dict):
 
     success = stream.start()
 
+    if not success:
+        _stream_semaphore.release()
+
     return {"success": success, "stream_id": stream_id}
 
 
@@ -914,6 +1042,8 @@ async def stop_live_stream(data: dict):
             logger.error(f"Failed to save stream summary: {e}")
 
     success = stop_stream(stream_id)
+    if success:
+        _stream_semaphore.release()
 
     return {"success": success}
 

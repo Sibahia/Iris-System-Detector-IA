@@ -156,12 +156,16 @@
     <!-- Modal: Class Cards Detail -->
     <div id="cards-detail-modal" class="fixed inset-0 z-50 hidden items-center justify-center p-4">
         <div class="modal-overlay absolute inset-0" onclick="closeCardsDetailModal()"></div>
-        <div class="modal-panel relative rounded-2xl w-full max-w-3xl max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
+        <div class="modal-panel relative rounded-2xl w-full max-w-5xl max-h-[80vh] flex flex-col" onclick="event.stopPropagation()">
             <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-                <h2 id="cards-detail-title" class="font-headline-md text-headline-md text-on-surface-variant font-bold">Class Cards</h2>
+                <h2 id="cards-detail-title" class="font-headline-md text-headline-md text-on-surface-variant font-bold">Lista de Clases</h2>
                 <button onclick="closeCardsDetailModal()" class="text-on-surface-variant hover:text-on-surface p-1 rounded-lg hover:bg-white/10 transition-colors">
                     <span class="material-symbols-outlined text-xl">close</span>
                 </button>
+            </div>
+            <div id="cards-view-toggle" class="flex gap-2 px-6 py-3 border-b border-white/5 shrink-0" style="display:none;">
+                <button id="view-grouped-btn" onclick="setCardsView('grouped')" class="bg-primary-container text-on-surface font-bold text-label-sm px-4 py-1.5 rounded-lg hover:bg-primary-container/80 transition-all">Agrupado</button>
+                <button id="view-individual-btn" onclick="setCardsView('individual')" class="bg-white/10 text-on-surface font-bold text-label-sm px-4 py-1.5 rounded-lg hover:bg-white/20 transition-all">Individual</button>
             </div>
             <div id="cards-detail-content" class="overflow-y-auto p-6 flex-1">
                 <div class="text-center py-8 text-on-surface-variant">Cargando...</div>

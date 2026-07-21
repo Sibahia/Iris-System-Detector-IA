@@ -9,7 +9,7 @@ Ante un incidente, verificar el estado del sistema con los siguientes comandos:
 | Health Check | `GET /health` o `curl http://localhost:8000/health` |
 | Logs del contenedor | `docker compose logs --tail=100` |
 | Logs en tiempo real | `docker compose logs -f` |
-| Estado del proceso | `docker ps \| grep cctv` |
+| Estado del proceso | `docker ps \| grep iris` |
 | Espacio en disco | `df -h` |
 | Base de datos | `sqlite3 src/storage/anomaly_history.db "SELECT count(*) FROM videos;"` |
 | Modelos YOLO | `ls -la models/` |

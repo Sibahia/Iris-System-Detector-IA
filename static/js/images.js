@@ -150,6 +150,38 @@
     '</div>';
   }
 
+  function getGroupStyle(groupName) {
+    var n = groupName.toLowerCase();
+    if (n.indexOf('person') !== -1 || n.indexOf('persona') !== -1) {
+      return { borderColor: 'border-blue-400/30', textColor: 'text-blue-400', icon: 'person' };
+    }
+    if (n.indexOf('weapon') !== -1 || n.indexOf('armed') !== -1 || n.indexOf('arma') !== -1) {
+      return { borderColor: 'border-red-500/30', textColor: 'text-red-500', icon: 'warning' };
+    }
+    if (n.indexOf('police') !== -1 || n.indexOf('autoridad') !== -1) {
+      return { borderColor: 'border-cyan-400/30', textColor: 'text-cyan-400', icon: 'local_police' };
+    }
+    if (n.indexOf('prison') !== -1 || n.indexOf('preso') !== -1) {
+      return { borderColor: 'border-purple-400/30', textColor: 'text-purple-400', icon: 'lock' };
+    }
+    if (n.indexOf('behavior') !== -1 || n.indexOf('assault') !== -1 || n.indexOf('fight') !== -1 || n.indexOf('kidnap') !== -1 || n.indexOf('terror') !== -1 || n.indexOf('robbery') !== -1) {
+      return { borderColor: 'border-amber-400/30', textColor: 'text-amber-400', icon: 'gavel' };
+    }
+    return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
+  }
+
+  function optimalGridCols(n, min, max) {
+    var best = max, bestScore = -Infinity;
+    for (var c = max; c >= min; c--) {
+      var rows = Math.ceil(n / c);
+      var fill = n / (c * rows);
+      var balance = Math.min(c, rows) / Math.max(c, rows);
+      var score = fill * 10 + balance;
+      if (score > bestScore) { bestScore = score; best = c; }
+    }
+    return best;
+  }
+
   function renderGlobalMetrics(data) {
     const grid = document.getElementById('metrics-grid');
     if (!grid) return;
@@ -182,62 +214,59 @@
       { label: 'Total Detectado', value: total, blocked: false },
     ];
 
-    grid.innerHTML = cards.map(function (c) { return metricCard(c.label, c.value, c.blocked); }).join('') + riskHtml +
+    var itemsHtml = cards.map(function (c) { return metricCard(c.label, c.value, c.blocked); }).join('') + riskHtml +
       metricCard('Tiempo Inferencia', time + 'ms', false) +
       metricCard('Modelo Usado', model, false);
+
+    var totalItems = (itemsHtml.match(/<div class="rounded-xl/g) || []).length;
+    var cols = optimalGridCols(totalItems, 2, 6);
+    grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    grid.innerHTML = itemsHtml;
   }
 
   function renderClassCards(data) {
     const container = document.getElementById('class-cards');
     if (!container) return;
 
-    const allNames = data.model_classes || Object.keys(data.class_counts || {});
-    const counts = data.class_counts || {};
+    const classGroups = data.class_groups || {};
+    const classCounts = data.class_counts || {};
+    const groupNames = Object.keys(classGroups);
 
-    function optimalGridCols(n, min, max) {
-        var best = max, bestScore = -Infinity;
-        for (var c = max; c >= min; c--) {
-            var rows = Math.ceil(n / c);
-            var fill = n / (c * rows);
-            var balance = Math.min(c, rows) / Math.max(c, rows);
-            var score = fill * 10 + balance;
-            if (score > bestScore) { bestScore = score; best = c; }
-        }
-        return best;
+    if (groupNames.length === 0) {
+      container.innerHTML = '';
+      return;
     }
-    container.style.gridTemplateColumns = 'repeat(' + optimalGridCols(allNames.length, 2, 6) + ', minmax(0, 1fr))';
-    container.innerHTML = allNames.map(function (cls) {
-      const count = counts[cls] || 0;
-      if (count === 0) {
+
+    var cols = optimalGridCols(groupNames.length, 2, 6);
+    container.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    container.innerHTML = groupNames.map(function (gName) {
+      var g = classGroups[gName];
+      var total = g.count || 0;
+      var style = getGroupStyle(gName);
+
+      if (total === 0) {
         return '<div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">' +
           '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">' +
-            '<span class="material-symbols-outlined text-sm">lock</span> ' + cls +
+            '<span class="material-symbols-outlined text-sm">lock</span> ' + gName +
           '</span>' +
           '<div class="text-on-surface-variant/30 text-label-sm font-medium">&mdash;</div>' +
         '</div>';
       }
 
-      var nameLower = cls.toLowerCase();
-      var borderColor = 'border-primary-container/30';
-      var textColor = 'text-primary';
-      var icon = 'category';
+      var detectedList = g.detected_natives || {};
+      var subItems = Object.keys(detectedList).map(function (n) {
+        return '<div class="flex items-center justify-between gap-2">' +
+          '<span class="text-label-xs text-on-surface-variant/80 truncate">' + n + '</span>' +
+          '<span class="text-label-xs font-bold ' + style.textColor + '">×' + detectedList[n] + '</span>' +
+        '</div>';
+      }).join('');
 
-      if (nameLower.indexOf('person') !== -1 || nameLower.indexOf('persona') !== -1) {
-        borderColor = 'border-blue-400/30';
-        textColor = 'text-blue-400';
-        icon = 'person';
-      } else if (nameLower.indexOf('knife') !== -1 || nameLower.indexOf('weapon') !== -1 || nameLower.indexOf('gun') !== -1 || nameLower.indexOf('pistol') !== -1 || nameLower.indexOf('rifle') !== -1 || nameLower.indexOf('arma') !== -1 || nameLower.indexOf('cuchillo') !== -1 || nameLower.indexOf('fuego') !== -1) {
-        borderColor = 'border-red-500/30';
-        textColor = 'text-red-500';
-        icon = 'warning';
-      }
-
-      return '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + borderColor + '">' +
+      return '<div class="glass-card p-stack-lg rounded-xl flex flex-col gap-1 ' + style.borderColor + '">' +
         '<span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">' +
-          '<span class="material-symbols-outlined text-sm ' + textColor + '">' + icon + '</span>' +
-          cls +
+          '<span class="material-symbols-outlined text-sm ' + style.textColor + '">' + style.icon + '</span>' + gName +
         '</span>' +
-        '<span class="font-display-lg text-headline-lg ' + textColor + ' text-center">' + count + '</span>' +
+        '<span class="font-display-lg text-headline-lg ' + style.textColor + ' text-center">' + total + '</span>' +
+        (subItems ? '<div class="border-t border-white/10 pt-2 mt-1 flex flex-col gap-1">' + subItems + '</div>' : '') +
       '</div>';
     }).join('');
   }

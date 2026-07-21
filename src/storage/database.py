@@ -20,6 +20,7 @@ def get_connection():
     """Get database connection with row factory"""
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
 
@@ -109,7 +110,14 @@ def init_database():
         cursor.execute("ALTER TABLE videos ADD COLUMN model_used TEXT")
         print("Added model_used column to videos")
     except sqlite3.OperationalError:
-        pass  # column already exists
+        pass
+
+    # 6. Migrate: add class_counts column to images if not exists
+    try:
+        cursor.execute("ALTER TABLE images ADD COLUMN class_counts TEXT")
+        print("Added class_counts column to images")
+    except sqlite3.OperationalError:
+        pass
 
     conn.commit()
     conn.close()
@@ -290,16 +298,17 @@ def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
     conn = get_connection()
     cursor = conn.cursor()
     
-    # Serializar listas a strings JSON válidos para SQLite
     anomaly_types_json = json.dumps(analysis_data.get("anomaly_types", []))
     detected_classes_json = json.dumps(analysis_data.get("detected_classes", []))
+    class_counts_json = json.dumps(analysis_data.get("class_counts", {}))
     
     cursor.execute('''
         INSERT INTO images (
             input_path, output_path, model_used, used_confidence,
             is_anomaly, risk_level, persons_count, weapons_count,
-            objects_count, anomaly_types, detected_classes, processing_time_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            objects_count, anomaly_types, detected_classes,
+            class_counts, processing_time_ms
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         analysis_data["input_path"],
         analysis_data["output_path"],
@@ -312,6 +321,7 @@ def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
         analysis_data["objects_count"],
         anomaly_types_json,
         detected_classes_json,
+        class_counts_json,
         analysis_data["processing_time_ms"]
     ))
     
@@ -338,6 +348,7 @@ def get_all_images(limit: int = 50, offset: int = 0) -> List[Dict]:
         img_dict = dict(row)
         img_dict["anomaly_types"] = json.loads(img_dict["anomaly_types"]) if img_dict.get("anomaly_types") else []
         img_dict["detected_classes"] = json.loads(img_dict["detected_classes"]) if img_dict.get("detected_classes") else []
+        img_dict["class_counts"] = json.loads(img_dict["class_counts"]) if img_dict.get("class_counts") else {}
         img_dict["is_anomaly"] = bool(img_dict["is_anomaly"])
         result.append(img_dict)
         
@@ -356,6 +367,7 @@ def get_image_by_id(image_id: int) -> Optional[Dict]:
         img_dict = dict(row)
         img_dict["anomaly_types"] = json.loads(img_dict["anomaly_types"]) if img_dict.get("anomaly_types") else []
         img_dict["detected_classes"] = json.loads(img_dict["detected_classes"]) if img_dict.get("detected_classes") else []
+        img_dict["class_counts"] = json.loads(img_dict["class_counts"]) if img_dict.get("class_counts") else {}
         img_dict["is_anomaly"] = bool(img_dict["is_anomaly"])
         return img_dict
         

@@ -97,9 +97,9 @@ class LiveStreamDetector:
             self.cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)  # 5 sec read timeout
             
             # Load YOLO detector
-            from detection.yolo_detector import YOLOAnomalyDetector
-            self.detector = YOLOAnomalyDetector(
-                model_size="n",
+            from detection.yolo_detector import get_yolo_detector
+            self.detector = get_yolo_detector(
+                model_size="s",
                 model_path=self.model_path,
                 crowd_threshold=self.crowd_threshold,
                 confidence_threshold=self.confidence

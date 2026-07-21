@@ -280,47 +280,89 @@ function displayResults(result) {
 
     const riskHtml = riskCard();
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
+    const allMetricItems = metricHtml + riskHtml;
+    const metricCount = (allMetricItems.match(/<div class="rounded-xl/g) || []).length;
+    const metricCols = optimalGridCols(metricCount, 2, 6);
+    metricsDiv.style.gridTemplateColumns = `repeat(${metricCols}, minmax(0, 1fr))`;
+    metricsDiv.innerHTML = allMetricItems;
 
-    metricsDiv.innerHTML = metricHtml + riskHtml;
+    function getGroupStyle(groupName) {
+        var n = groupName.toLowerCase();
+        if (n.indexOf('person') !== -1 || n.indexOf('persona') !== -1) {
+            return { borderColor: 'border-blue-400/30', textColor: 'text-blue-400', icon: 'person' };
+        }
+        if (n.indexOf('weapon') !== -1 || n.indexOf('armed') !== -1 || n.indexOf('arma') !== -1) {
+            return { borderColor: 'border-red-500/30', textColor: 'text-red-500', icon: 'warning' };
+        }
+        if (n.indexOf('police') !== -1 || n.indexOf('autoridad') !== -1) {
+            return { borderColor: 'border-cyan-400/30', textColor: 'text-cyan-400', icon: 'local_police' };
+        }
+        if (n.indexOf('prison') !== -1 || n.indexOf('preso') !== -1) {
+            return { borderColor: 'border-purple-400/30', textColor: 'text-purple-400', icon: 'lock' };
+        }
+        if (n.indexOf('behavior') !== -1 || n.indexOf('assault') !== -1 || n.indexOf('fight') !== -1 || n.indexOf('kidnap') !== -1 || n.indexOf('terror') !== -1 || n.indexOf('robbery') !== -1) {
+            return { borderColor: 'border-amber-400/30', textColor: 'text-amber-400', icon: 'gavel' };
+        }
+        return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
+    }
+
+    function optimalGridCols(n, min, max) {
+        let best = max, bestScore = -Infinity;
+        for (let c = max; c >= min; c--) {
+            const rows = Math.ceil(n / c);
+            const fill = n / (c * rows);
+            const balance = Math.min(c, rows) / Math.max(c, rows);
+            const score = fill * 10 + balance;
+            if (score > bestScore) { bestScore = score; best = c; }
+        }
+        return best;
+    }
 
     const classContainer = document.getElementById('class-cards');
     if (classContainer) {
-        const allNames = result.model_classes || Object.keys(result.class_counts || {});
-        const classCounts = result.class_counts || {};
+        const classGroups = result.class_groups || {};
+        const groupNames = Object.keys(classGroups);
 
-        function optimalGridCols(n, min, max) {
-            let best = max, bestScore = -Infinity;
-            for (let c = max; c >= min; c--) {
-                const rows = Math.ceil(n / c);
-                const fill = n / (c * rows);
-                const balance = Math.min(c, rows) / Math.max(c, rows);
-                const score = fill * 10 + balance;
-                if (score > bestScore) { bestScore = score; best = c; }
-            }
-            return best;
-        }
-        classContainer.style.display = 'grid';
-        classContainer.style.gridTemplateColumns = `repeat(${optimalGridCols(allNames.length, 2, 6)}, minmax(0, 1fr))`;
-        classContainer.innerHTML = allNames.map(cls => {
-            const count = classCounts[cls] || 0;
-            if (count === 0) {
+        if (groupNames.length > 0) {
+            const cols = optimalGridCols(groupNames.length, 2, 6);
+            classContainer.style.display = 'grid';
+            classContainer.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            classContainer.innerHTML = groupNames.map(gName => {
+                const g = classGroups[gName];
+                const total = g.count || 0;
+                const style = getGroupStyle(gName);
+
+                if (total === 0) {
+                    return `
+                        <div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">
+                            <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">
+                                <span class="material-symbols-outlined text-sm">lock</span> ${gName}
+                            </span>
+                            <div class="text-on-surface-variant/30 text-label-sm font-medium">—</div>
+                        </div>
+                    `;
+                }
+
+                const detectedList = g.detected_natives || {};
+                const subItems = Object.keys(detectedList).map(n =>
+                    `<div class="flex items-center justify-between gap-2">
+                        <span class="text-label-xs text-on-surface-variant/80 truncate">${n}</span>
+                        <span class="text-label-xs font-bold ${style.textColor}">×${detectedList[n]}</span>
+                    </div>`
+                ).join('');
+
                 return `
-                    <div class="rounded-xl p-3 flex flex-col gap-1 text-center justify-center opacity-35 border border-white/5 bg-white/[0.02] cursor-not-allowed select-none">
-                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider flex items-center justify-center gap-1">
-                            <span class="material-symbols-outlined text-sm">lock</span> ${cls}
+                    <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center ${style.borderColor}">
+                        <span class="font-label-sm text-label-sm text-on-surface-variant uppercase flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined text-sm ${style.textColor}">${style.icon}</span> ${gName}
                         </span>
-                        <div class="text-on-surface-variant/30 text-label-sm font-medium">—</div>
+                        <div class="font-headline-md text-headline-md ${style.textColor} text-center mt-1">${total}</div>
+                        <span class="font-label-xs text-label-xs text-on-surface-variant/60 uppercase tracking-wider mt-0.5">detectado(s)</span>
+                        ${subItems ? `<div class="border-t border-white/10 pt-2 mt-2 w-full flex flex-col gap-1">${subItems}</div>` : ''}
                     </div>
                 `;
-            }
-            return `
-                <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
-                    <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
-                    <div class="font-headline-md text-headline-md text-on-surface mt-1">${count}</div>
-                    <span class="font-label-xs text-label-xs text-on-surface-variant/60 uppercase tracking-wider mt-0.5">frames</span>
-                </div>
-            `;
-        }).join('');
+            }).join('');
+        }
     }
 
     if (result.annotated_video_url) {
