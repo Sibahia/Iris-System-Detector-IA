@@ -166,7 +166,7 @@ async def lifespan(app: FastAPI):
     logger.info("Application shutting down")
 
 app = FastAPI(
-    title="CCTV Anomaly Detection",
+    title="Iris System Detector",
     description="YOLOv8/YOLO11-based video and image anomaly detection",
     version="4.0.0",
     lifespan=lifespan

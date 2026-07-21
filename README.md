@@ -332,7 +332,7 @@ Este comando se encarga de:
 2. Compilar e instalar los paquetes de `requirements.txt`.
 3. Iniciar el backend con FastAPI expuesto en el puerto `8000`.
 
-### 🔄 Cómo Actualizar el Contenedor (cctv_ia_test)
+### 🔄 Cómo Actualizar el Contenedor (iris-system-detector-ia)
 Cuando realices cambios en el código base o actualices dependencias en `requirements.txt`, ejecuta el siguiente comando para reconstruir la imagen y reiniciar el contenedor de manera transparente:
 ```bash
 docker compose up -d --build

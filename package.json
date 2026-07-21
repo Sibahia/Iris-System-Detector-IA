@@ -1,5 +1,5 @@
 {
-  "name": "cctv_ia_test",
+  "name": "iris-system-detector-ia",
   "version": "1.0.0",
   "description": "Este proyecto es un fork del repositorio [CCTV_Video_Anomaly_Detection](https://github.com/saadkhan2003/CCTV_Video_Anomaly_Detection), sistema de detección de anomalías de vídeo de alto rendimiento, impulsado por IA, diseñado para videovigilancia CCTV. Utiliza YOLOv11 con optimización OpenVINO para la detección en tiempo real en CPU estándar, e incluye una interfaz web y funciones de alerta de anomalías.",
   "main": "index.js",
@@ -14,16 +14,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Sibahia/prueba-cctv-ia.git"
+    "url": "git+https://github.com/Sibahia/Iris-System-Detector-IA.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/Sibahia/prueba-cctv-ia/issues"
+    "url": "https://github.com/Sibahia/Iris-System-Detector-IA/issues"
   },
-  "homepage": "https://github.com/Sibahia/prueba-cctv-ia#readme",
+  "homepage": "https://github.com/Sibahia/Iris-System-Detector-IA#readme",
   "devDependencies": {
     "@tailwindcss/cli": "^4.3.2",
     "tailwindcss": "^4.3.2"
