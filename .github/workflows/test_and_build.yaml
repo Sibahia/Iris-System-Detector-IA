@@ -47,13 +47,9 @@ jobs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
-    - name: Build Docker image
+    - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: .
-        load: true
-        tags: iris-system-detector-ia:latest
-    - name: Push to GHCR
-      run: |
-        docker tag iris-system-detector-ia:latest ghcr.io/${{ github.repository_owner }}/iris-system-detector-ia:latest
-        docker push ghcr.io/${{ github.repository_owner }}/iris-system-detector-ia:latest
+        push: true
+        tags: ghcr.io/${{ github.repository_owner }}/iris-system-detector-ia:latest

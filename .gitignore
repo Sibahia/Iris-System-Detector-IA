@@ -21,6 +21,7 @@ static/videos/*.avi
 static/videos/*.mp4
 static/images/*
 .env
+opencode.json
 
 # Logs
 *.log
