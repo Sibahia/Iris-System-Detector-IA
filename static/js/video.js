@@ -157,11 +157,16 @@ function initConfidenceSlider() {
 async function uploadVideo() {
     const fileInput = document.getElementById('videoFile');
     const file = fileInput.files[0];
+    const btn = document.getElementById('analyze-btn');
     
     if (!file) {
         showVideoError('Por favor selecciona un video');
         return;
     }
+
+    // Disable button + spinner
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Procesando...';
 
     // Reset UI
     document.getElementById('loading').style.display = 'block';
@@ -202,7 +207,8 @@ async function uploadVideo() {
     } catch (error) {
         showVideoError(error.message || 'Error de conexión con el servidor.');
         document.getElementById('loading').style.display = 'none';
-        // Limpiamos en caso de error para permitir reintento
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis';
         fileInput.value = '';
         resetUploadUI();
     }
@@ -220,14 +226,21 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'completed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
+                const btn = document.getElementById('analyze-btn');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 displayResults(task.result);
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
+                const btn = document.getElementById('analyze-btn');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 showVideoError(task.error || 'El análisis falló.');
             }
         } catch (error) {
             clearInterval(pollInterval);
+            document.getElementById('loading').style.display = 'none';
+            const btn = document.getElementById('analyze-btn');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
             console.error('Error polling:', error);
         }
     }, 1000);
