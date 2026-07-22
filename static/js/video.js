@@ -32,8 +32,6 @@ function initVideoUpload() {
     const dropzone = document.getElementById('video-dropzone');
     const fileInput = document.getElementById('videoFile');
     const fileName = document.getElementById('fileName');
-    const placeholder = document.getElementById('video-upload-placeholder');
-    const preview = document.getElementById('video-preview');
 
     if (!dropzone || !fileInput) return;
 
@@ -52,10 +50,9 @@ function initVideoUpload() {
         fileName.textContent = file.name;
         getVideoThumbnail(file).then(dataUrl => {
             if (dataUrl) {
-                preview.src = dataUrl;
-                preview.classList.remove('hidden');
-                preview.classList.add('active');
-                if (placeholder) placeholder.style.display = 'none';
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
+                dropzone.style.backgroundSize = 'cover';
+                dropzone.style.backgroundPosition = 'center';
                 dropzone.classList.add('has-preview');
             }
         });
@@ -88,17 +85,14 @@ function initVideoUpload() {
 function updateFileName(input) {
     const display = document.getElementById('fileName');
     const dropzone = document.getElementById('video-dropzone');
-    const placeholder = document.getElementById('video-upload-placeholder');
-    const preview = document.getElementById('video-preview');
     
     if (input.files && input.files.length > 0) {
         display.textContent = input.files[0].name;
         getVideoThumbnail(input.files[0]).then(dataUrl => {
             if (dataUrl) {
-                preview.src = dataUrl;
-                preview.classList.remove('hidden');
-                preview.classList.add('active');
-                if (placeholder) placeholder.style.display = 'none';
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
+                dropzone.style.backgroundSize = 'cover';
+                dropzone.style.backgroundPosition = 'center';
                 dropzone.classList.add('has-preview');
             }
         });
@@ -113,16 +107,11 @@ function updateFileName(input) {
 function resetUploadUI() {
     const dropzone = document.getElementById('video-dropzone');
     const fileName = document.getElementById('fileName');
-    const placeholder = document.getElementById('video-upload-placeholder');
-    const preview = document.getElementById('video-preview');
     if (dropzone) {
         dropzone.classList.remove('has-preview');
-    }
-    if (placeholder) placeholder.style.display = '';
-    if (preview) {
-        preview.classList.add('hidden');
-        preview.classList.remove('active');
-        preview.src = '';
+        dropzone.style.backgroundImage = '';
+        dropzone.style.backgroundSize = '';
+        dropzone.style.backgroundPosition = '';
     }
     if (fileName) fileName.textContent = 'Haz clic para buscar o arrastra el video';
 }

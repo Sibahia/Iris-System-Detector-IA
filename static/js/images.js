@@ -9,8 +9,6 @@
     const fileInput = document.getElementById('image-input');
     const dropzoneText = document.getElementById('dropzone-text');
     const fileInfo = document.getElementById('file-info');
-    const preview = document.getElementById('image-preview');
-    const dropzoneContent = document.getElementById('dropzone-content');
 
     if (!dropzone || !fileInput) return;
 
@@ -30,10 +28,9 @@
       fileInfo.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
       var reader = new FileReader();
       reader.onload = function (e) {
-        preview.src = e.target.result;
-        preview.classList.remove('hidden');
-        preview.classList.add('active');
-        if (dropzoneContent) dropzoneContent.style.display = 'none';
+        dropzone.style.backgroundImage = 'url(' + e.target.result + ')';
+        dropzone.style.backgroundSize = 'cover';
+        dropzone.style.backgroundPosition = 'center';
         dropzone.classList.add('has-image');
       };
       reader.readAsDataURL(file);
