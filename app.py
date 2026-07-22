@@ -314,6 +314,22 @@ def run_analysis_task(
             file_path, output_path, progress_callback=update_progress
         )
 
+        final_risk = "normal"
+        risk_percentage = 0
+
+        if stats["max_weapons"] > 0:
+            final_risk = "critico"
+            risk_percentage = 100
+        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
+            final_risk = "alto"
+            risk_percentage = 85
+        elif stats["anomaly_frames"] > 0:
+            final_risk = "medio"
+            risk_percentage = 50
+        else:
+            final_risk = "normal"
+            risk_percentage = 10
+
         video_id = save_video_analysis(
             filename=original_filename,
             frame_count=stats["total_frames"],
@@ -329,6 +345,7 @@ def run_analysis_task(
             original_video_path=file_path,
             model_name=model_name or "default",
             class_counts=stats.get("class_counts", {}),
+            risk_level=final_risk,
         )
 
         if stats["anomaly_frames"] > 0:
@@ -350,22 +367,6 @@ def run_analysis_task(
 
         TASKS[task_id]["status"] = "completed"
         TASKS[task_id]["progress"] = 100
-        
-        final_risk = "normal"
-        risk_percentage = 0
-
-        if stats["max_weapons"] > 0:
-            final_risk = "critico"
-            risk_percentage = 100
-        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
-            final_risk = "alto"
-            risk_percentage = 85
-        elif stats["anomaly_frames"] > 0:
-            final_risk = "medio"
-            risk_percentage = 50
-        else:
-            final_risk = "normal"
-            risk_percentage = 10
         
         TASKS[task_id]["result"] = {
             "video_id": video_id,

@@ -129,6 +129,13 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 8. Migrate: add risk_level column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN risk_level TEXT DEFAULT 'normal'")
+        print("Added risk_level column to videos")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
@@ -151,7 +158,8 @@ def save_video_analysis(
     original_video_path: Optional[str] = None,
     frame_bboxes: Optional[List[List[Dict]]] = None,
     model_name: Optional[str] = None,
-    class_counts: Optional[Dict] = None
+    class_counts: Optional[Dict] = None,
+    risk_level: Optional[str] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -166,13 +174,13 @@ def save_video_analysis(
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
             original_video_path, avg_anomaly_score, max_anomaly_score,
-            model_used, class_counts
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_used, class_counts, risk_level
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
         original_video_path, avg_score, max_score,
-        model_name, class_counts_json
+        model_name, class_counts_json, risk_level
     ))
     
     video_id = cursor.lastrowid

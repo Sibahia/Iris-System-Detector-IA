@@ -47,17 +47,23 @@ function renderPage() {
         tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 40px; color: var(--on-surface-variant);">No se encontraron registros</td></tr>';
     } else {
         tbody.innerHTML = pageItems.map(v => {
-            const riskRate = Math.round((v.anomaly_rate || 0) * 100);
+            const riskLevel = v.risk_level || 'normal';
+            const riskRateMap = { critico: 100, alto: 85, medio: 50, bajo: 25, normal: 10 };
+            const riskRate = riskRateMap[riskLevel] || Math.round((v.anomaly_rate || 0) * 100);
 
             let riskClass = "risk-low";
             let riskLabel = "Bajo";
             let rowClass = "hover:bg-white/5 transition-colors group";
 
-            if (riskRate > 50) {
+            if (riskLevel === 'critico' || riskRate > 80) {
+                riskClass = "risk-high";
+                riskLabel = "Crítico";
+                rowClass += " bg-error-container/10";
+            } else if (riskLevel === 'alto' || riskRate > 50) {
                 riskClass = "risk-high";
                 riskLabel = "Alto";
                 rowClass += " bg-error-container/5";
-            } else if (riskRate > 25) {
+            } else if (riskLevel === 'medio' || riskRate > 25) {
                 riskClass = "risk-medium";
                 riskLabel = "Medio";
             }
@@ -72,7 +78,7 @@ function renderPage() {
                 icon = 'sensors';
                 iconColor = 'text-green-400';
             }
-            if (riskRate > 50) iconColor = 'text-error';
+            if (riskLevel === 'critico' || riskLevel === 'alto' || riskRate > 50) iconColor = 'text-error';
 
             let details = v.frame_count != null ? v.frame_count + ' f' : '—';
 

@@ -207,9 +207,14 @@ class LiveStreamDetector:
         duration = time.time() - self.start_time if self.start_time else 0
         anomaly_rate = self.anomaly_frame_count / self.total_frames if self.total_frames > 0 else 0
         risk = "normal"
-        if anomaly_rate > 0.5: risk = "alto"
-        elif anomaly_rate > 0.25: risk = "medio"
-        elif anomaly_rate > 0: risk = "bajo"
+        if self.max_weapon_count > 0:
+            risk = "critico"
+        elif anomaly_rate > 0.5:
+            risk = "alto"
+        elif anomaly_rate > 0.25:
+            risk = "medio"
+        elif anomaly_rate > 0:
+            risk = "bajo"
         return {
             "stream_id": "main",
             "source": str(self.source),
