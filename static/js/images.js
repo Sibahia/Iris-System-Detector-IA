@@ -185,11 +185,6 @@
     return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
   }
 
-  function optimalGridCols(n, min, max) {
-    if (n <= max) return n;
-    return Math.min(Math.ceil(n / 2), max);
-  }
-
   function renderGlobalMetrics(data) {
     const grid = document.getElementById('metrics-grid');
     if (!grid) return;
@@ -220,9 +215,8 @@
       metricCard('Modelo Usado', model, false);
 
     var totalItems = (itemsHtml.match(/<div class="rounded-xl/g) || []).length;
-    var cols = optimalGridCols(totalItems, 2, 6);
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
-    grid.style.justifyContent = totalItems <= 6 ? 'center' : '';
+    grid.style.gridTemplateColumns = 'repeat(' + (totalItems <= 5 ? totalItems : 5) + ', minmax(0, 1fr))';
+    grid.style.justifyContent = 'center';
     grid.innerHTML = itemsHtml;
   }
 
@@ -239,8 +233,8 @@
       return;
     }
 
-    var cols = optimalGridCols(groupNames.length, 2, 6);
-    container.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    var classCols = groupNames.length <= 5 ? groupNames.length : 5;
+    container.style.gridTemplateColumns = 'repeat(' + classCols + ', minmax(0, 1fr))';
     container.innerHTML = groupNames.map(function (gName) {
       var g = classGroups[gName];
       var total = g.count || 0;

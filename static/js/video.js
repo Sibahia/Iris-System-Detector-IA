@@ -295,9 +295,8 @@ function displayResults(result) {
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
     const allMetricItems = metricHtml + riskHtml;
     const metricCount = (allMetricItems.match(/<div class="rounded-xl/g) || []).length;
-    const metricCols = optimalGridCols(metricCount, 2, 6);
-    metricsDiv.style.gridTemplateColumns = `repeat(${metricCols}, minmax(0, 1fr))`;
-    metricsDiv.style.justifyContent = metricCount <= 6 ? 'center' : '';
+    metricsDiv.style.gridTemplateColumns = `repeat(${metricCount <= 5 ? metricCount : 5}, minmax(0, 1fr))`;
+    metricsDiv.style.justifyContent = 'center';
     metricsDiv.innerHTML = allMetricItems;
 
     function getGroupStyle(groupName) {
@@ -320,20 +319,15 @@ function displayResults(result) {
         return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
     }
 
-    function optimalGridCols(n, min, max) {
-        if (n <= max) return n;
-        return Math.min(Math.ceil(n / 2), max);
-    }
-
     const classContainer = document.getElementById('class-cards');
     if (classContainer) {
         const classGroups = result.class_groups || {};
         const groupNames = Object.keys(classGroups);
 
         if (groupNames.length > 0) {
-            const cols = optimalGridCols(groupNames.length, 2, 6);
+            const classCols = groupNames.length <= 5 ? groupNames.length : 5;
             classContainer.style.display = 'grid';
-            classContainer.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            classContainer.style.gridTemplateColumns = `repeat(${classCols}, minmax(0, 1fr))`;
             classContainer.innerHTML = groupNames.map(gName => {
                 const g = classGroups[gName];
                 const total = g.count || 0;
