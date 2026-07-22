@@ -186,15 +186,8 @@
   }
 
   function optimalGridCols(n, min, max) {
-    var best = max, bestScore = -Infinity;
-    for (var c = max; c >= min; c--) {
-      var rows = Math.ceil(n / c);
-      var fill = n / (c * rows);
-      var balance = Math.min(c, rows) / Math.max(c, rows);
-      var score = fill * 10 + balance;
-      if (score > bestScore) { bestScore = score; best = c; }
-    }
-    return best;
+    if (n <= max) return n;
+    return Math.min(Math.ceil(n / 2), max);
   }
 
   function renderGlobalMetrics(data) {
@@ -229,6 +222,7 @@
     var totalItems = (itemsHtml.match(/<div class="rounded-xl/g) || []).length;
     var cols = optimalGridCols(totalItems, 2, 6);
     grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    grid.style.justifyContent = totalItems <= 6 ? 'center' : '';
     grid.innerHTML = itemsHtml;
   }
 

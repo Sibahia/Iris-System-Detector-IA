@@ -144,6 +144,39 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 10. Migrate: add crowd_threshold column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN crowd_threshold INTEGER")
+        print("Added crowd_threshold column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 11. Migrate: recalculate risk_level for old videos with weapons in class_counts
+    try:
+        cursor.execute("SELECT id, class_counts FROM videos WHERE risk_level = 'normal' OR risk_level IS NULL")
+        rows = cursor.fetchall()
+        updated = 0
+        for row in rows:
+            cc = row[1]
+            if isinstance(cc, str):
+                try:
+                    cc = json.loads(cc)
+                except Exception:
+                    cc = {}
+            if not isinstance(cc, dict):
+                continue
+            has_weapon = any(
+                k.lower() in ('weapon', 'weapons', 'armed_person', 'gun', 'rifle', 'pistol', 'knife')
+                for k in cc.keys()
+            )
+            if has_weapon:
+                cursor.execute("UPDATE videos SET risk_level = 'alto' WHERE id = ?", (row[0],))
+                updated += 1
+        if updated:
+            print(f"Migrated {updated} video(s) risk_level to alto (weapons detected)")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
@@ -167,7 +200,8 @@ def save_video_analysis(
     frame_bboxes: Optional[List[List[Dict]]] = None,
     model_name: Optional[str] = None,
     class_counts: Optional[Dict] = None,
-    risk_level: Optional[str] = None
+    risk_level: Optional[str] = None,
+    crowd_threshold: Optional[int] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -182,13 +216,13 @@ def save_video_analysis(
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
             original_video_path, avg_anomaly_score, max_anomaly_score,
-            model_used, class_counts, risk_level
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_used, class_counts, risk_level, crowd_threshold
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
         original_video_path, avg_score, max_score,
-        model_name, class_counts_json, risk_level
+        model_name, class_counts_json, risk_level, crowd_threshold
     ))
     
     video_id = cursor.lastrowid

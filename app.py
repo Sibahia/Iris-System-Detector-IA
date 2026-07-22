@@ -336,7 +336,8 @@ def run_analysis_task(
             anomaly_count=stats["anomaly_frames"],
             anomaly_rate=stats["anomaly_rate"],
             processing_time=stats["processing_time"],
-            threshold_used=crowd_threshold,
+            threshold_used=confidence,
+            crowd_threshold=crowd_threshold,
             anomaly_scores=[
                 1.0 if r["is_anomaly"] else 0.0 for r in stats["frame_results"]
             ],

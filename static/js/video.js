@@ -297,6 +297,7 @@ function displayResults(result) {
     const metricCount = (allMetricItems.match(/<div class="rounded-xl/g) || []).length;
     const metricCols = optimalGridCols(metricCount, 2, 6);
     metricsDiv.style.gridTemplateColumns = `repeat(${metricCols}, minmax(0, 1fr))`;
+    metricsDiv.style.justifyContent = metricCount <= 6 ? 'center' : '';
     metricsDiv.innerHTML = allMetricItems;
 
     function getGroupStyle(groupName) {
@@ -320,15 +321,8 @@ function displayResults(result) {
     }
 
     function optimalGridCols(n, min, max) {
-        let best = max, bestScore = -Infinity;
-        for (let c = max; c >= min; c--) {
-            const rows = Math.ceil(n / c);
-            const fill = n / (c * rows);
-            const balance = Math.min(c, rows) / Math.max(c, rows);
-            const score = fill * 10 + balance;
-            if (score > bestScore) { bestScore = score; best = c; }
-        }
-        return best;
+        if (n <= max) return n;
+        return Math.min(Math.ceil(n / 2), max);
     }
 
     const classContainer = document.getElementById('class-cards');
