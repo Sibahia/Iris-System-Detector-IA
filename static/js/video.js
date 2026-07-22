@@ -1,5 +1,6 @@
 let currentVideoUrl = null;
 let currentResult = null;
+const ALLOWED_VIDEO_EXTS = ['.mp4', '.avi', '.mov', '.mkv'];
 
 function getVideoThumbnail(file, maxTime = 0.5) {
     return new Promise((resolve) => {
@@ -39,12 +40,20 @@ function initVideoUpload() {
     fileInput.addEventListener('change', () => {
         const file = fileInput.files[0];
         if (!file) return;
+
+        var ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (ALLOWED_VIDEO_EXTS.indexOf(ext) === -1) {
+            showVideoError('Tipo de archivo no permitido. Formatos aceptados: MP4, AVI, MOV, MKV.');
+            return;
+        }
+
         fileName.textContent = file.name;
         getVideoThumbnail(file).then(dataUrl => {
             if (dataUrl) {
-                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
                 dropzone.style.backgroundSize = 'cover';
                 dropzone.style.backgroundPosition = 'center';
+                dropzone.classList.add('has-preview');
             }
         });
         document.getElementById('results').style.display = 'none';
@@ -81,16 +90,17 @@ function updateFileName(input) {
         display.textContent = input.files[0].name;
         getVideoThumbnail(input.files[0]).then(dataUrl => {
             if (dataUrl) {
-                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
                 dropzone.style.backgroundSize = 'cover';
                 dropzone.style.backgroundPosition = 'center';
+                dropzone.classList.add('has-preview');
             }
         });
         document.getElementById('results').style.display = 'none';
         document.getElementById('loading').style.display = 'none';
     } else {
         display.textContent = 'Haz clic para buscar o arrastra el video';
-        dropzone.style.backgroundImage = '';
+        resetUploadUI();
     }
 }
 
@@ -98,6 +108,7 @@ function resetUploadUI() {
     const dropzone = document.getElementById('video-dropzone');
     const fileName = document.getElementById('fileName');
     if (dropzone) {
+        dropzone.classList.remove('has-preview');
         dropzone.style.backgroundImage = '';
         dropzone.style.backgroundSize = '';
         dropzone.style.backgroundPosition = '';
@@ -122,6 +133,15 @@ async function initModelSelect() {
     } catch (e) {
         select.innerHTML = '<option value="">Models unavailable</option>';
     }
+
+    try {
+        var cfgResp = await fetch('/config');
+        var cfg = await cfgResp.json();
+        var info = document.getElementById('file-info');
+        if (info && cfg.max_file_size_mb) {
+            info.textContent = 'Tamaño máximo de archivo: ' + cfg.max_file_size_mb + 'MB';
+        }
+    } catch (e) {}
 }
 
 function initConfidenceSlider() {
@@ -139,7 +159,7 @@ async function uploadVideo() {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Por favor selecciona un video');
+        showVideoError('Por favor selecciona un video');
         return;
     }
 
@@ -180,7 +200,7 @@ async function uploadVideo() {
             throw new Error(data.detail || 'Error al iniciar el análisis');
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showVideoError(error.message || 'Error de conexión con el servidor.');
         document.getElementById('loading').style.display = 'none';
         // Limpiamos en caso de error para permitir reintento
         fileInput.value = '';
@@ -204,7 +224,7 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
-                alert('Error: ' + (task.error || 'El análisis falló.'));
+                showVideoError(task.error || 'El análisis falló.');
             }
         } catch (error) {
             clearInterval(pollInterval);
@@ -216,8 +236,6 @@ async function pollTaskStatus(taskId) {
 function displayResults(result) {
     currentResult = result;
     const metricsDiv = document.getElementById('metrics');
-
-    const isCritico = result.risk_level === 'critico';
 
     const anomalyTypesCount = result.anomaly_types
         ? Object.keys(result.anomaly_types).length
@@ -243,20 +261,15 @@ function displayResults(result) {
     }
 
     function riskCard() {
-        const styles = isCritico
-            ? "border glass-risk-high text-on-surface-variant animate-pulse"
-            : "border bg-primary-container/5 text-on-surface";
-        const textStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
-        const bgStyle = isCritico
-            ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"'
-            : '';
-        const labelClass = isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant';
+        const riskColors = { normal: '#4ade80', bajo: '#4ade80', medio: '#fbbf24', alto: '#f87171' };
+        const color = riskColors[result.risk_level] || '#4ade80';
+        const riskLabel = (result.risk_level || 'normal').toUpperCase();
 
         return `
-            <div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ${isCritico ? '' : 'glass-panel'} ${styles}" ${bgStyle}>
-                <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${labelClass}">Nivel de Riesgo</span>
-                <div class="font-headline-md text-headline-md ${textStyles}">
-                    ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
+            <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center border bg-primary-container/5 text-on-surface">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 text-on-surface-variant">Nivel de Riesgo</span>
+                <div class="font-headline-md text-headline-md" style="color: ${color}">
+                    ${result.risk_percentage}% (${riskLabel})
                 </div>
             </div>
         `;
@@ -281,9 +294,9 @@ function displayResults(result) {
     const riskHtml = riskCard();
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
     const allMetricItems = metricHtml + riskHtml;
-    const metricCount = (allMetricItems.match(/<div class="rounded-xl/g) || []).length;
-    const metricCols = optimalGridCols(metricCount, 2, 6);
-    metricsDiv.style.gridTemplateColumns = `repeat(${metricCols}, minmax(0, 1fr))`;
+    const metricCount = cards.length + 1;
+    metricsDiv.style.gridTemplateColumns = `repeat(${metricCount <= 5 ? metricCount : 5}, minmax(0, 1fr))`;
+    metricsDiv.style.justifyContent = 'center';
     metricsDiv.innerHTML = allMetricItems;
 
     function getGroupStyle(groupName) {
@@ -306,27 +319,15 @@ function displayResults(result) {
         return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
     }
 
-    function optimalGridCols(n, min, max) {
-        let best = max, bestScore = -Infinity;
-        for (let c = max; c >= min; c--) {
-            const rows = Math.ceil(n / c);
-            const fill = n / (c * rows);
-            const balance = Math.min(c, rows) / Math.max(c, rows);
-            const score = fill * 10 + balance;
-            if (score > bestScore) { bestScore = score; best = c; }
-        }
-        return best;
-    }
-
     const classContainer = document.getElementById('class-cards');
     if (classContainer) {
         const classGroups = result.class_groups || {};
         const groupNames = Object.keys(classGroups);
 
         if (groupNames.length > 0) {
-            const cols = optimalGridCols(groupNames.length, 2, 6);
+            const classCols = groupNames.length <= 5 ? groupNames.length : 5;
             classContainer.style.display = 'grid';
-            classContainer.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
+            classContainer.style.gridTemplateColumns = `repeat(${classCols}, minmax(0, 1fr))`;
             classContainer.innerHTML = groupNames.map(gName => {
                 const g = classGroups[gName];
                 const total = g.count || 0;
@@ -391,6 +392,15 @@ function initExportJSON() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     });
+}
+
+function showVideoError(msg) {
+    var el = document.getElementById('video-error-message');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { el.classList.add('hidden'); }, 8000);
 }
 
 function init() {

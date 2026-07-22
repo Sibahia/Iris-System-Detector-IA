@@ -123,7 +123,7 @@ ALLOWED_VIDEO_EXTENSIONS = {".mp4", ".avi", ".mov", ".mkv"}
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp"}
 
 
-def detect_mime_by_magic(content: bytes) -> str | None:
+def detect_mime_by_magic(content: bytes) -> str:
     for sig, mime in IMAGE_SIGNATURES.items():
         if content[:len(sig)] == sig:
             return mime
@@ -132,7 +132,7 @@ def detect_mime_by_magic(content: bytes) -> str | None:
             return mime
     if len(content) > 8 and content[4:8] == b"ftyp":
         return "video/mp4"
-    return None
+    return "unknown"
 
 
 def validate_upload(content: bytes, filename: str, content_type: str, expected_type: str):
@@ -140,18 +140,18 @@ def validate_upload(content: bytes, filename: str, content_type: str, expected_t
     allowed = ALLOWED_VIDEO_EXTENSIONS if expected_type == "video" else ALLOWED_IMAGE_EXTENSIONS
 
     if ext not in allowed:
-        raise HTTPException(400, f"File extension '{ext}' is not allowed for {expected_type} files")
+        raise HTTPException(400, f"La extensión '{ext}' no está permitida para archivos de tipo {expected_type}")
 
     if not content_type.startswith(f"{expected_type}/"):
-        raise HTTPException(400, f"Content type must be {expected_type}/*, got '{content_type}'")
+        raise HTTPException(400, f"El tipo de contenido debe ser {expected_type}/*, se recibió '{content_type}'")
 
     magic_mime = detect_mime_by_magic(content)
-    if magic_mime is None:
-        raise HTTPException(400, f"File does not match any known {expected_type} format")
+    if magic_mime == "unknown":
+        return
 
     expected_mime = EXT_TO_MIME.get(ext)
     if expected_mime and magic_mime != expected_mime:
-        raise HTTPException(400, f"File extension '{ext}' does not match actual file format ('{magic_mime}')")
+        raise HTTPException(400, f"La extensión '{ext}' no coincide con el formato real del archivo ('{magic_mime}')")
 
 
 # =====================================================================
@@ -186,7 +186,7 @@ async def security_headers_middleware(request: Request, call_next):
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'"
     response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
     return response
 
@@ -252,7 +252,7 @@ def _cleanup_expired_tasks():
     while len(active) > TASKS_MAX_ACTIVE:
         oldest = active.pop(0)
         TASKS[oldest]["status"] = "failed"
-        TASKS[oldest]["error"] = "Task evicted: too many active tasks"
+        TASKS[oldest]["error"] = "Tarea descartada: demasiadas tareas activas"
 
     timer = threading.Timer(60, _cleanup_expired_tasks)
     timer.daemon = True
@@ -314,13 +314,30 @@ def run_analysis_task(
             file_path, output_path, progress_callback=update_progress
         )
 
+        final_risk = "normal"
+        risk_percentage = 0
+
+        if stats["max_weapons"] > 0:
+            final_risk = "alto"
+            risk_percentage = 85
+        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
+            final_risk = "alto"
+            risk_percentage = 85
+        elif stats["anomaly_frames"] > 0:
+            final_risk = "medio"
+            risk_percentage = 50
+        else:
+            final_risk = "normal"
+            risk_percentage = 10
+
         video_id = save_video_analysis(
             filename=original_filename,
             frame_count=stats["total_frames"],
             anomaly_count=stats["anomaly_frames"],
             anomaly_rate=stats["anomaly_rate"],
             processing_time=stats["processing_time"],
-            threshold_used=crowd_threshold,
+            threshold_used=confidence,
+            crowd_threshold=crowd_threshold,
             anomaly_scores=[
                 1.0 if r["is_anomaly"] else 0.0 for r in stats["frame_results"]
             ],
@@ -328,6 +345,8 @@ def run_analysis_task(
             output_video_path=output_path,
             original_video_path=file_path,
             model_name=model_name or "default",
+            class_counts=stats.get("class_counts", {}),
+            risk_level=final_risk,
         )
 
         if stats["anomaly_frames"] > 0:
@@ -349,22 +368,6 @@ def run_analysis_task(
 
         TASKS[task_id]["status"] = "completed"
         TASKS[task_id]["progress"] = 100
-        
-        final_risk = "normal"
-        risk_percentage = 0
-
-        if stats["max_weapons"] > 0:
-            final_risk = "critico"
-            risk_percentage = 100
-        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
-            final_risk = "alto"
-            risk_percentage = 85
-        elif stats["anomaly_frames"] > 0:
-            final_risk = "medio"
-            risk_percentage = 50
-        else:
-            final_risk = "normal"
-            risk_percentage = 10
         
         TASKS[task_id]["result"] = {
             "video_id": video_id,
@@ -520,6 +523,12 @@ async def get_available_models():
     return {"models": AVAILABLE_MODELS, "default": DEFAULT_MODEL}
 
 
+@app.get("/config")
+async def get_config():
+    """Retorna configuración pública del servidor para el frontend"""
+    return {"max_file_size_mb": MAX_FILE_SIZE_MB}
+
+
 # =====================================================================
 # VIDEO INFERENCE ENDPOINTS
 # =====================================================================
@@ -545,7 +554,7 @@ async def analyze_yolo(
         content = await file.read()
 
         if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
+            raise HTTPException(413, f"El archivo excede el tamaño máximo de {MAX_FILE_SIZE_MB}MB")
 
         validate_upload(content, safe_filename, file.content_type or "", "video")
 
@@ -557,7 +566,7 @@ async def analyze_yolo(
         cap = cv2.VideoCapture(temp_path)
         if not cap.isOpened():
             cap.release()
-            raise HTTPException(400, "Video file appears corrupted or unreadable")
+            raise HTTPException(400, "El archivo de video está corrupto o no se puede leer")
         cap.release()
     except HTTPException:
         temp.close()
@@ -568,10 +577,10 @@ async def analyze_yolo(
         raise
     except:
         temp.close()
-        raise HTTPException(500, "Failed to save file")
+        raise HTTPException(500, "No se pudo guardar el archivo")
 
     if model_name and model_name not in AVAILABLE_MODELS:
-        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
+        raise HTTPException(400, f"El modelo '{model_name}' no está registrado en los modelos disponibles.")
 
     task_id = str(uuid.uuid4())
     output_filename = f"yolo_{task_id}.mp4"
@@ -601,7 +610,7 @@ async def analyze_yolo(
 async def get_task_status(task_id: str):
     task = TASKS.get(task_id)
     if not task:
-        raise HTTPException(404, "Task not found")
+        raise HTTPException(404, "Tarea no encontrada")
     return task
 
 
@@ -618,7 +627,7 @@ async def get_history(
 async def get_history_item(video_id: int):
     result = get_video_by_id(video_id)
     if not result:
-        raise HTTPException(404, "Video not found")
+        raise HTTPException(404, "Video no encontrado")
     return result
 
 
@@ -633,7 +642,7 @@ async def delete_history_item(video_id: int):
 
     success = delete_video(video_id)
     if not success:
-        raise HTTPException(404, "Video not found")
+        raise HTTPException(404, "Video no encontrado")
     return {"deleted": True}
 
 
@@ -657,7 +666,7 @@ async def analyze_image(
     # Validar y resolver que modelo usar
     selected_model = model_name if model_name else DEFAULT_MODEL
     if selected_model not in AVAILABLE_MODELS:
-        raise HTTPException(400, f"Model '{selected_model}' is not registered in AVAILABLE_MODELS.")
+        raise HTTPException(400, f"El modelo '{selected_model}' no está registrado en los modelos disponibles.")
 
     model_path = os.path.join("models", selected_model)
 
@@ -668,7 +677,7 @@ async def analyze_image(
         content = await file.read()
 
         if len(content) > MAX_FILE_SIZE:
-            raise HTTPException(413, f"File exceeds maximum size of {MAX_FILE_SIZE_MB}MB")
+            raise HTTPException(413, f"El archivo excede el tamaño máximo de {MAX_FILE_SIZE_MB}MB")
 
         validate_upload(content, safe_filename, file.content_type or "", "image")
 
@@ -681,7 +690,7 @@ async def analyze_image(
             img = Image.open(temp_path)
             img.verify()
         except Exception:
-            raise HTTPException(400, "Image file appears corrupted or unreadable")
+            raise HTTPException(400, "El archivo de imagen está corrupto o no se puede leer")
     except HTTPException:
         temp_input.close()
         try:
@@ -691,7 +700,7 @@ async def analyze_image(
         raise
     except:
         temp_input.close()
-        raise HTTPException(500, "Failed to save uploaded image")
+        raise HTTPException(500, "No se pudo guardar la imagen")
 
     # Configurar rutas de salida fijas
     unique_id = str(uuid.uuid4())
@@ -727,9 +736,7 @@ async def analyze_image(
         
         # Calcular porcentaje de riesgo analogo al pipeline de videos
         risk_pct = 10
-        if raw_results["risk_level"] == "critico":
-            risk_pct = 100
-        elif raw_results["risk_level"] == "alto":
+        if raw_results["risk_level"] == "alto":
             risk_pct = 85
         elif raw_results["is_anomaly"]:
             risk_pct = 50
@@ -773,7 +780,7 @@ async def get_image_history_item(image_id: int):
     """Obtiene detalles especificos de una imagen registrada"""
     result = get_image_by_id(image_id)
     if not result:
-        raise HTTPException(404, "Image audit log not found")
+        raise HTTPException(404, "Registro de imagen no encontrado")
     return result
 
 
@@ -782,7 +789,7 @@ async def delete_image_history_item(image_id: int):
     """Elimina la imagen de la BD y purga su archivo de disco"""
     success = delete_image(image_id)
     if not success:
-        raise HTTPException(404, "Image not found")
+        raise HTTPException(404, "Imagen no encontrada")
     return {"deleted": True}
 
 
@@ -799,7 +806,7 @@ async def get_stream_history(limit: int = Query(50), offset: int = Query(0)):
 async def get_stream_history_item(stream_id: int):
     result = get_stream_by_id(stream_id)
     if not result:
-        raise HTTPException(404, "Stream record not found")
+        raise HTTPException(404, "Registro de stream no encontrado")
     return result
 
 
@@ -807,7 +814,7 @@ async def get_stream_history_item(stream_id: int):
 async def delete_stream_history_item(stream_id: int):
     success = delete_stream(stream_id)
     if not success:
-        raise HTTPException(404, "Stream record not found")
+        raise HTTPException(404, "Registro de stream no encontrado")
     return {"deleted": True}
 
 
@@ -890,17 +897,17 @@ async def get_record_detail(record_type: str, record_id: int):
     if record_type == "video":
         record = get_video_by_id(record_id)
         if not record:
-            raise HTTPException(404, "Video not found")
+            raise HTTPException(404, "Video no encontrado")
         events = get_anomaly_events(record_id)
         record["anomaly_events"] = events
         record["record_type"] = "video"
-        class_counts = {}
-        for ev in events:
-            bboxes = ev.get("bounding_boxes", [])
-            if isinstance(bboxes, list):
-                for box in bboxes:
-                    name = box.get("class_name", "unknown")
-                    class_counts[name] = class_counts.get(name, 0) + 1
+
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
         record["class_counts"] = class_counts
 
         model_name = record.get("model_name") or record.get("model_used", "")
@@ -916,7 +923,7 @@ async def get_record_detail(record_type: str, record_id: int):
     elif record_type == "image":
         record = get_image_by_id(record_id)
         if not record:
-            raise HTTPException(404, "Image not found")
+            raise HTTPException(404, "Imagen no encontrada")
         record["record_type"] = "image"
         model_name = record.get("model_used", "")
         native_names = get_native_class_names_for_model(model_name)
@@ -936,7 +943,7 @@ async def get_record_detail(record_type: str, record_id: int):
     elif record_type == "stream":
         record = get_stream_by_id(record_id)
         if not record:
-            raise HTTPException(404, "Stream not found")
+            raise HTTPException(404, "Stream no encontrado")
         record["record_type"] = "stream"
         model_name = record.get("model_name") or record.get("model_used", "")
         native_names = get_native_class_names_for_model(model_name)
@@ -953,7 +960,7 @@ async def get_record_detail(record_type: str, record_id: int):
         return record
 
     else:
-        raise HTTPException(400, f"Invalid record_type: {record_type}. Use video, image, or stream.")
+        raise HTTPException(400, f"Tipo de registro inválido: {record_type}. Use video, image o stream.")
 
 
 # =====================================================================
@@ -1010,7 +1017,7 @@ async def start_live_stream(data: dict):
     model_name = data.get("model_name")
 
     if model_name and model_name not in AVAILABLE_MODELS:
-        raise HTTPException(400, f"Model '{model_name}' is not registered in AVAILABLE_MODELS.")
+        raise HTTPException(400, f"El modelo '{model_name}' no está registrado en los modelos disponibles.")
 
     if isinstance(source, str) and source.isdigit():
         source = int(source)
@@ -1054,7 +1061,7 @@ async def live_feed(stream_id: str):
 
     stream = get_stream(stream_id)
     if not stream or not stream.is_running:
-        raise HTTPException(404, "Stream not found or not running")
+        raise HTTPException(404, "Stream no encontrado o no está activo")
 
     return StreamingResponse(
         stream.generate_frames(), media_type="multipart/x-mixed-replace; boundary=frame"

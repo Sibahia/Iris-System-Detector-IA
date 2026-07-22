@@ -73,7 +73,7 @@ def init_database():
             model_used TEXT NOT NULL,
             used_confidence REAL NOT NULL,
             is_anomaly BOOLEAN NOT NULL,
-            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto', 'critico')),
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto')),
             persons_count INTEGER NOT NULL,
             weapons_count INTEGER NOT NULL,
             objects_count INTEGER NOT NULL,
@@ -122,6 +122,61 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 7. Migrate: add class_counts column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN class_counts TEXT")
+        print("Added class_counts column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 8. Migrate: add risk_level column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN risk_level TEXT DEFAULT 'normal'")
+        print("Added risk_level column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 9. Migrate: update existing 'critico' risk_level to 'alto'
+    try:
+        cursor.execute("UPDATE videos SET risk_level = 'alto' WHERE risk_level = 'critico'")
+        cursor.execute("UPDATE images SET risk_level = 'alto' WHERE risk_level = 'critico'")
+        print("Migrated critico risk_level to alto")
+    except sqlite3.OperationalError:
+        pass
+
+    # 10. Migrate: add crowd_threshold column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN crowd_threshold INTEGER")
+        print("Added crowd_threshold column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 11. Migrate: recalculate risk_level for old videos with weapons in class_counts
+    try:
+        cursor.execute("SELECT id, class_counts FROM videos WHERE risk_level = 'normal' OR risk_level IS NULL")
+        rows = cursor.fetchall()
+        updated = 0
+        for row in rows:
+            cc = row[1]
+            if isinstance(cc, str):
+                try:
+                    cc = json.loads(cc)
+                except Exception:
+                    cc = {}
+            if not isinstance(cc, dict):
+                continue
+            has_weapon = any(
+                k.lower() in ('weapon', 'weapons', 'armed_person', 'gun', 'rifle', 'pistol', 'knife')
+                for k in cc.keys()
+            )
+            if has_weapon:
+                cursor.execute("UPDATE videos SET risk_level = 'alto' WHERE id = ?", (row[0],))
+                updated += 1
+        if updated:
+            print(f"Migrated {updated} video(s) risk_level to alto (weapons detected)")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
@@ -143,7 +198,10 @@ def save_video_analysis(
     output_video_path: Optional[str] = None,
     original_video_path: Optional[str] = None,
     frame_bboxes: Optional[List[List[Dict]]] = None,
-    model_name: Optional[str] = None
+    model_name: Optional[str] = None,
+    class_counts: Optional[Dict] = None,
+    risk_level: Optional[str] = None,
+    crowd_threshold: Optional[int] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -151,19 +209,20 @@ def save_video_analysis(
     
     avg_score = sum(anomaly_scores) / len(anomaly_scores) if anomaly_scores else 0
     max_score = max(anomaly_scores) if anomaly_scores else 0
+    class_counts_json = json.dumps(class_counts) if class_counts else None
     
     cursor.execute('''
         INSERT INTO videos (
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
             original_video_path, avg_anomaly_score, max_anomaly_score,
-            model_used
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_used, class_counts, risk_level, crowd_threshold
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
         original_video_path, avg_score, max_score,
-        model_name
+        model_name, class_counts_json, risk_level, crowd_threshold
     ))
     
     video_id = cursor.lastrowid
@@ -206,7 +265,15 @@ def get_video_by_id(video_id: int) -> Optional[Dict]:
     cursor.execute('SELECT * FROM videos WHERE id = ?', (video_id,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    result = dict(row)
+    if isinstance(result.get("class_counts"), str):
+        try:
+            result["class_counts"] = json.loads(result["class_counts"])
+        except Exception:
+            result["class_counts"] = {}
+    return result
 
 
 def get_anomaly_events(video_id: int) -> List[Dict]:

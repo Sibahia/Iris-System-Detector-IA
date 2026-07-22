@@ -92,8 +92,8 @@ def classify_classes(model_names: dict, model_name: str = None) -> dict:
     result["categories"] = categories
 
     result["anomaly_map"] = {
-        "weapon": { "type": "ARMA_DETECTADA", "risk": "critico" },
-        "armed_person": { "type": "PERSONA_ARMADA", "risk": "critico" },
+        "weapon": { "type": "ARMA_DETECTADA", "risk": "alto" },
+        "armed_person": { "type": "PERSONA_ARMADA", "risk": "alto" },
         "crowd": { "type": "AGLOMERACION_DE_PERSONAS", "risk": "medio" },
         "proximity": { "type": "ALTERCADO_POTENCIAL", "risk": "alto" },
     }

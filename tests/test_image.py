@@ -33,7 +33,7 @@ class TestImageDetectionAPI:
         """Simula la respuesta real exacta con una anomalía crítica"""
         return {
             "is_anomaly": True,
-            "risk_level": "critico",
+            "risk_level": "alto",
             "detections": {
                 "persons": [], 
                 "weapons": [{"class_name": "pistol", "confidence": 0.88}]
@@ -84,8 +84,8 @@ class TestImageDetectionAPI:
 
         assert response.status_code == 200
         json_data = response.json()
-        assert json_data["risk_level"] == "critico"
-        assert json_data["risk_percentage"] == 100
+        assert json_data["risk_level"] == "alto"
+        assert json_data["risk_percentage"] == 85
 
     def test_analyze_image_invalid_file_type(self):
         """Prueba que el sistema rechace archivos que no sean imágenes"""
@@ -94,7 +94,7 @@ class TestImageDetectionAPI:
         response = client.post("/analyze-image", files={"file": bad_file})
         
         assert response.status_code == 400
-        assert "File extension '.mp4' is not allowed for image files" in response.json()["detail"]
+        assert "no está permitida" in response.json()["detail"]
 
     def test_analyze_image_unregistered_model(self, mock_image_file):
         """Prueba que falle con un error 400 si se solicita un modelo no registrado"""
@@ -105,4 +105,4 @@ class TestImageDetectionAPI:
         )
         
         assert response.status_code == 400
-        assert "is not registered in AVAILABLE_MODELS" in response.json()["detail"]
+        assert "no está registrado" in response.json()["detail"]

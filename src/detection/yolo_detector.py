@@ -198,7 +198,7 @@ class YOLOAnomalyDetector:
                 )
                 anomalies["risk_level"] = entry.get("risk", "alto")
 
-        # 3. Weapon detection (critico - overrides everything)
+        # 3. Weapon detection (alto - overrides everything)
         if weapon_count > 0:
             anomalies["is_anomaly"] = True
             weapon_names = [w["class_name"].upper() for w in detections["weapons"]]
@@ -207,7 +207,7 @@ class YOLOAnomalyDetector:
             anomalies["anomaly_details"].insert(
                 0, f"ARMA DETECTADA: {', '.join(weapon_names)}"
             )
-            anomalies["risk_level"] = entry.get("risk", "critico")
+            anomalies["risk_level"] = entry.get("risk", "alto")
 
         # 4. Behavior-based anomalies (from suspicious.pt etc.)
         for cat_name, cat_detections in detections.get("behaviors", {}).items():
@@ -225,7 +225,7 @@ class YOLOAnomalyDetector:
                         f"{anomaly_type}: {', '.join(behavior_names)}"
                     )
                 # Upgrade risk if behavior risk is higher
-                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3, "critico": 4}
+                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3}
                 if risk_order.get(risk, 0) > risk_order.get(anomalies["risk_level"], 0):
                     anomalies["risk_level"] = risk
 
@@ -314,6 +314,25 @@ class YOLOAnomalyDetector:
 
         return frame, results
 
+    CLASS_COLORS = {
+        "weapon": (0, 0, 255),
+        "person": (0, 200, 0),
+        "rifle": (0, 165, 255),
+        "pistol": (255, 0, 200),
+        "gun": (0, 0, 200),
+        "guns": (0, 0, 200),
+        "knife": (0, 255, 255),
+        "Knife": (0, 255, 255),
+        "police": (255, 150, 0),
+        "prisoner": (0, 140, 255),
+        "armed_person": (180, 0, 180),
+        "behavior_assault": (255, 0, 100),
+        "behavior_fight": (255, 100, 0),
+        "behavior_kidnap": (100, 0, 255),
+        "behavior_terror": (0, 0, 180),
+        "behavior_robbery": (255, 165, 0),
+    }
+
     def draw_annotations(
         self, frame: np.ndarray, detections: Dict[str, Any], anomalies: Dict[str, Any]
     ) -> np.ndarray:
@@ -321,66 +340,39 @@ class YOLOAnomalyDetector:
         overlay = frame.copy()
         h, w = frame_copy.shape[:2]
 
-        is_critico = anomalies.get("risk_level") == "critico"
+        drawn_ids = set()
+        for det in detections["all_boxes"]:
+            det_id = id(det)
+            if det_id in drawn_ids:
+                continue
+            drawn_ids.add(det_id)
 
-        # Draw Persons
-        person_color = (0, 0, 255) if (anomalies["is_anomaly"] or is_critico) else (0, 255, 0)
-        for det in detections["persons"]:
             x1, y1, x2, y2 = det["bbox"]
-            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), person_color, 2)
-            label = f"Persona {det['confidence']:.0%}"
+            class_name = det["class_name"]
+            color = self.CLASS_COLORS.get(class_name, (255, 120, 0))
+
+            is_weapon = det["class_id"] in self.WEAPON_CLASSES
+            thickness = 3 if is_weapon else 2
+            prefix = "! " if is_weapon else ""
+
+            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, thickness)
+            label = f"{prefix}{class_name} {det['confidence']:.0%}"
             if "id" in det and det["id"] != -1:
                 label += f" ID:{det['id']}"
 
             (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), person_color, -1)
+            cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), color, -1)
             cv2.putText(
                 frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
             )
-
-        # Draw Weapons
-        for det in detections.get("weapons", []):
-            x1, y1, x2, y2 = det["bbox"]
-            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            label = f"! {det['class_name'].upper()} {det['confidence']:.0%}"
-
-            (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-            cv2.rectangle(frame_copy, (x1, y1 - 25), (x1 + t_w, y1), (0, 0, 255), -1)
-            cv2.putText(
-                frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2
-            )
-
-        # Draw Behaviors
-        behavior_colors = {
-            "behavior_assault": (255, 0, 100),
-            "behavior_fight": (255, 100, 0),
-            "behavior_kidnap": (100, 0, 255),
-            "behavior_terror": (0, 0, 180),
-            "behavior_robbery": (255, 165, 0),
-        }
-        for cat_name, cat_detections in detections.get("behaviors", {}).items():
-            color = behavior_colors.get(cat_name, (255, 120, 0))
-            for det in cat_detections:
-                x1, y1, x2, y2 = det["bbox"]
-                # Don't re-draw if already drawn as person or weapon
-                if det in detections.get("weapons", []) or det in detections.get("persons", []):
-                    continue
-                cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, 2)
-                label = f"! {det['class_name'].upper()} {det['confidence']:.0%}"
-
-                (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-                cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), color, -1)
-                cv2.putText(
-                    frame_copy, label, (x1, y1 - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1
-                )
 
         # Top status bar
         pad = 20
         bar_height = 50
 
         if anomalies["is_anomaly"]:
-            status_color = (0, 0, 255) if is_critico else (0, 100, 200)
-            status_text = "RIESGO CRITICO" if is_critico else "ANOMALIA DETECTADA"
+            status_color = (0, 100, 200)
+            status_text = "ANOMALIA DETECTADA"
             detail_text = ", ".join(anomalies["anomaly_types"])
         else:
             status_color = (0, 150, 0)
@@ -512,7 +504,8 @@ class YOLOAnomalyDetector:
             else 0
         )
         stats["anomaly_types_count"] = dict(stats["anomaly_types_count"])
-        stats["model_name"] = os.path.basename(self.model_path) if self.model_path else os.getenv("MODEL_NAME", "default")
+        model_basename = os.path.basename(self.model_path) if self.model_path else None
+        stats["model_name"] = model_basename or os.getenv("MODEL_NAME", "default")
 
         return stats
 

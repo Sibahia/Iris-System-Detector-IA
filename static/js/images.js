@@ -2,13 +2,13 @@
   'use strict';
 
   let currentResult = null;
+  const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
   function initFileUpload() {
     const dropzone = document.getElementById('dropzone-zone');
     const fileInput = document.getElementById('image-input');
     const dropzoneText = document.getElementById('dropzone-text');
     const fileInfo = document.getElementById('file-info');
-    const preview = document.getElementById('image-preview');
 
     if (!dropzone || !fileInput) return;
 
@@ -17,12 +17,18 @@
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       if (!file) return;
+
+      var ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (ALLOWED_IMAGE_EXTS.indexOf(ext) === -1) {
+        showError('Tipo de archivo no permitido. Formatos aceptados: JPG, PNG, GIF, BMP, WEBP.');
+        return;
+      }
+
       dropzoneText.textContent = file.name;
       fileInfo.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-      const reader = new FileReader();
+      var reader = new FileReader();
       reader.onload = function (e) {
-        preview.src = e.target.result;
-        dropzone.style.backgroundImage = `url(${e.target.result})`;
+        dropzone.style.backgroundImage = 'url(' + e.target.result + ')';
         dropzone.style.backgroundSize = 'cover';
         dropzone.style.backgroundPosition = 'center';
         dropzone.classList.add('has-image');
@@ -39,13 +45,13 @@
 
     dropzone.addEventListener('dragleave', () => {
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = '';
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = '';
       if (e.dataTransfer.files.length > 0) {
         fileInput.files = e.dataTransfer.files;
         fileInput.dispatchEvent(new Event('change'));
@@ -70,6 +76,15 @@
     } catch (e) {
       select.innerHTML = '<option value="">Models unavailable</option>';
     }
+
+    try {
+      var cfgResp = await fetch('/config');
+      var cfg = await cfgResp.json();
+      var info = document.getElementById('file-info');
+      if (info && cfg.max_file_size_mb) {
+        info.textContent = 'Tamaño máximo de archivo: ' + cfg.max_file_size_mb + 'MB';
+      }
+    } catch (e) {}
   }
 
   function initConfidenceSlider() {
@@ -170,18 +185,6 @@
     return { borderColor: 'border-primary-container/30', textColor: 'text-primary', icon: 'category' };
   }
 
-  function optimalGridCols(n, min, max) {
-    var best = max, bestScore = -Infinity;
-    for (var c = max; c >= min; c--) {
-      var rows = Math.ceil(n / c);
-      var fill = n / (c * rows);
-      var balance = Math.min(c, rows) / Math.max(c, rows);
-      var score = fill * 10 + balance;
-      if (score > bestScore) { bestScore = score; best = c; }
-    }
-    return best;
-  }
-
   function renderGlobalMetrics(data) {
     const grid = document.getElementById('metrics-grid');
     if (!grid) return;
@@ -195,19 +198,12 @@
     const time = data.processing_time_ms || 0;
     const model = data.model_used || '—';
 
-    const isCritico = riskLevel === 'critico';
-    const styles = isCritico
-      ? 'border glass-risk-high text-on-surface-variant animate-pulse'
-      : 'border bg-primary-container/5 text-on-surface';
-    const textStyles = isCritico ? 'text-[#ffb4ab] font-bold' : 'text-[#ffb77d]';
-    const bgStyle = isCritico
-      ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"'
-      : '';
-    const labelClass = isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant';
+    const riskColors = { normal: '#4ade80', bajo: '#4ade80', medio: '#fbbf24', alto: '#f87171' };
+    const color = riskColors[riskLevel] || '#4ade80';
 
-    const riskHtml = '<div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ' + (isCritico ? '' : 'glass-panel') + ' ' + styles + '" ' + bgStyle + '>' +
-      '<span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ' + labelClass + '">Nivel de Riesgo</span>' +
-      '<div class="font-headline-md text-headline-md ' + textStyles + '">' + riskPct + '% (' + riskLevel.toUpperCase() + ')</div>' +
+    const riskHtml = '<div class="glass-panel rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center border bg-primary-container/5 text-on-surface">' +
+      '<span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 text-on-surface-variant">Nivel de Riesgo</span>' +
+      '<div class="font-headline-md text-headline-md" style="color: ' + color + '">' + riskPct + '% (' + riskLevel.toUpperCase() + ')</div>' +
     '</div>';
 
     const cards = [
@@ -218,9 +214,9 @@
       metricCard('Tiempo Inferencia', time + 'ms', false) +
       metricCard('Modelo Usado', model, false);
 
-    var totalItems = (itemsHtml.match(/<div class="rounded-xl/g) || []).length;
-    var cols = optimalGridCols(totalItems, 2, 6);
-    grid.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    var totalItems = cards.length + 3;
+    grid.style.gridTemplateColumns = 'repeat(' + (totalItems <= 5 ? totalItems : 5) + ', minmax(0, 1fr))';
+    grid.style.justifyContent = 'center';
     grid.innerHTML = itemsHtml;
   }
 
@@ -237,8 +233,8 @@
       return;
     }
 
-    var cols = optimalGridCols(groupNames.length, 2, 6);
-    container.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+    var classCols = groupNames.length <= 5 ? groupNames.length : 5;
+    container.style.gridTemplateColumns = 'repeat(' + classCols + ', minmax(0, 1fr))';
     container.innerHTML = groupNames.map(function (gName) {
       var g = classGroups[gName];
       var total = g.count || 0;
@@ -330,6 +326,8 @@
     if (!el) return;
     el.textContent = msg;
     el.classList.remove('hidden');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { hideError(); }, 8000);
   }
 
   function hideError() {

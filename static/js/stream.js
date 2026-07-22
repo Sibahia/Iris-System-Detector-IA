@@ -51,7 +51,7 @@ startBtn.addEventListener('click', async () => {
         };
 
         if (!config.source) {
-            alert("Por favor, ingresa una URL válida o selecciona una cámara.");
+            showStreamError("Por favor, ingresa una URL válida o selecciona una cámara.");
             return;
         }
 
@@ -99,7 +99,7 @@ async function startStream(config) {
         }
     } catch (error) {
         console.error("Error en stream:", error);
-        alert('No se pudo iniciar el stream: ' + error.message);
+        showStreamError('No se pudo iniciar el stream: ' + error.message);
         
         startBtn.innerHTML = originalText;
         startBtn.disabled = false;
@@ -150,6 +150,15 @@ async function updateStatus() {
             }
         }
     } catch (e) { stopStream(); }
+}
+
+function showStreamError(msg) {
+    var el = document.getElementById('stream-error-message');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { el.classList.add('hidden'); }, 8000);
 }
 
 initModelSelect();
