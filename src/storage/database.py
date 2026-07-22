@@ -177,6 +177,102 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 12. Migrate: add risk_percentage to videos
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN risk_percentage INTEGER DEFAULT 0")
+        print("Added risk_percentage column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 13. Migrate: add max_people_detected and max_weapons_detected to videos
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN max_people_detected INTEGER DEFAULT 0")
+        cursor.execute("ALTER TABLE videos ADD COLUMN max_weapons_detected INTEGER DEFAULT 0")
+        print("Added max_people_detected, max_weapons_detected columns to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 14. Migrate: add risk_percentage to images
+    try:
+        cursor.execute("ALTER TABLE images ADD COLUMN risk_percentage INTEGER DEFAULT 0")
+        print("Added risk_percentage column to images")
+    except sqlite3.OperationalError:
+        pass
+
+    # 15. Migrate: add risk_percentage to streams
+    try:
+        cursor.execute("ALTER TABLE streams ADD COLUMN risk_percentage INTEGER DEFAULT 0")
+        print("Added risk_percentage column to streams")
+    except sqlite3.OperationalError:
+        pass
+
+    # 16. Migrate: backfill risk_percentage for old video records
+    try:
+        cursor.execute(
+            "SELECT id, risk_level, anomaly_rate, class_counts FROM videos WHERE risk_percentage = 0 OR risk_percentage IS NULL"
+        )
+        rows = cursor.fetchall()
+        updated = 0
+        for row in rows:
+            rid, rl, ar, cc = row
+            if isinstance(cc, str):
+                try:
+                    cc = json.loads(cc)
+                except Exception:
+                    cc = {}
+            if not isinstance(cc, dict):
+                cc = {}
+            rp = 0
+            if rl == "alto":
+                weapon_count = sum(cc.get(k, 0) for k in ("weapon", "weapons", "armed_person", "gun", "rifle", "pistol", "knife", "guns", "Knife"))
+                persons = cc.get("person", 0)
+                severity = min(weapon_count / 5.0, 1.0) if weapon_count > 0 else 0
+                if persons > 0 and weapon_count > 0:
+                    severity = min(severity + 0.1, 1.0)
+                rp = round(71 + severity * 24)
+            elif rl == "medio":
+                rp = round(41 + (ar or 0) * 29)
+            elif rl == "bajo":
+                rp = round(21 + (ar or 0) * 19)
+            else:
+                rp = round(1 + (ar or 0) * 19)
+            if rp > 0:
+                cursor.execute("UPDATE videos SET risk_percentage = ? WHERE id = ?", (rp, rid))
+                updated += 1
+        if updated:
+            print(f"Backfilled risk_percentage for {updated} video(s)")
+    except sqlite3.OperationalError:
+        pass
+
+    # 17. Migrate: backfill risk_percentage for old image records
+    try:
+        cursor.execute(
+            "SELECT id, risk_level, weapons_count, persons_count FROM images WHERE risk_percentage = 0 OR risk_percentage IS NULL"
+        )
+        rows = cursor.fetchall()
+        updated = 0
+        for row in rows:
+            rid, rl, wc, pc = row
+            rp = 0
+            if rl == "alto":
+                severity = min((wc or 0) / 5.0, 1.0)
+                if (pc or 0) > 0 and (wc or 0) > 0:
+                    severity = min(severity + 0.1, 1.0)
+                rp = round(71 + severity * 24)
+            elif rl == "medio":
+                rp = 70
+            elif rl == "bajo":
+                rp = 30
+            else:
+                rp = 11
+            if rp > 0:
+                cursor.execute("UPDATE images SET risk_percentage = ? WHERE id = ?", (rp, rid))
+                updated += 1
+        if updated:
+            print(f"Backfilled risk_percentage for {updated} image(s)")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
@@ -201,7 +297,10 @@ def save_video_analysis(
     model_name: Optional[str] = None,
     class_counts: Optional[Dict] = None,
     risk_level: Optional[str] = None,
-    crowd_threshold: Optional[int] = None
+    crowd_threshold: Optional[int] = None,
+    risk_percentage: Optional[int] = None,
+    max_people_detected: Optional[int] = None,
+    max_weapons_detected: Optional[int] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -216,13 +315,15 @@ def save_video_analysis(
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
             original_video_path, avg_anomaly_score, max_anomaly_score,
-            model_used, class_counts, risk_level, crowd_threshold
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_used, class_counts, risk_level, crowd_threshold,
+            risk_percentage, max_people_detected, max_weapons_detected
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
         original_video_path, avg_score, max_score,
-        model_name, class_counts_json, risk_level, crowd_threshold
+        model_name, class_counts_json, risk_level, crowd_threshold,
+        risk_percentage or 0, max_people_detected or 0, max_weapons_detected or 0
     ))
     
     video_id = cursor.lastrowid
@@ -358,7 +459,7 @@ def delete_video(video_id: int) -> bool:
 # IMAGE ANALYSIS METRIC PERSISTENCE
 # =====================================================================
 
-def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
+def save_image_analysis(analysis_data: Dict[str, Any], risk_percentage: Optional[int] = None) -> int:
     """
     Guarda el diccionario de salida de YOLOImageDetector.process_image en la base de datos.
     
@@ -377,8 +478,8 @@ def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
             input_path, output_path, model_used, used_confidence,
             is_anomaly, risk_level, persons_count, weapons_count,
             objects_count, anomaly_types, detected_classes,
-            class_counts, processing_time_ms
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            class_counts, processing_time_ms, risk_percentage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         analysis_data["input_path"],
         analysis_data["output_path"],
@@ -392,7 +493,8 @@ def save_image_analysis(analysis_data: Dict[str, Any]) -> int:
         anomaly_types_json,
         detected_classes_json,
         class_counts_json,
-        analysis_data["processing_time_ms"]
+        analysis_data["processing_time_ms"],
+        risk_percentage or 0
     ))
     
     image_id = cursor.lastrowid
@@ -468,7 +570,7 @@ def delete_image(image_id: int) -> bool:
 # STREAM ANALYSIS PERSISTENCE
 # =====================================================================
 
-def save_stream_analysis(data: Dict[str, Any]) -> int:
+def save_stream_analysis(data: Dict[str, Any], risk_percentage: Optional[int] = None) -> int:
     """Save stream analysis summary to database"""
     conn = get_connection()
     cursor = conn.cursor()
@@ -482,8 +584,8 @@ def save_stream_analysis(data: Dict[str, Any]) -> int:
             start_time, end_time, duration_seconds, avg_fps,
             total_frames, anomaly_frames, anomaly_rate,
             max_person_count, max_weapon_count,
-            class_counts, anomaly_types, risk_level
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            class_counts, anomaly_types, risk_level, risk_percentage
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         data.get("stream_id", "main"),
         data.get("source", ""),
@@ -502,6 +604,7 @@ def save_stream_analysis(data: Dict[str, Any]) -> int:
         class_counts_json,
         anomaly_types_json,
         data.get("risk_level", "normal"),
+        risk_percentage or 0
     ))
 
     stream_id = cursor.lastrowid

@@ -11,17 +11,19 @@ async function loadHistory() {
     tbody.innerHTML = '';
 
     const filename = document.getElementById('search-filename')?.value || '';
-    const minRate = document.getElementById('filter-rate')?.value || '';
+    const riskLevel = document.getElementById('filter-rate')?.value || '';
     const recordType = document.getElementById('filter-type')?.value || '';
 
     let url = '/combined-history?';
     if (filename) url += `filename=${encodeURIComponent(filename)}&`;
-    if (minRate) url += `min_anomaly_rate=${minRate}&`;
     if (recordType) url += `record_type=${recordType}&`;
 
     try {
         const response = await fetch(url);
         allItems = await response.json();
+        if (riskLevel) {
+            allItems = allItems.filter(item => (item.risk_level || 'normal') === riskLevel);
+        }
         currentPage = 1;
         renderPage();
     } catch (e) {
@@ -48,8 +50,10 @@ function renderPage() {
     } else {
         tbody.innerHTML = pageItems.map(v => {
             const riskLevel = v.risk_level || 'normal';
-            const riskRateMap = { alto: 85, medio: 50, bajo: 25, normal: 10 };
-            const riskRate = riskRateMap[riskLevel] || Math.round((v.anomaly_rate || 0) * 100);
+            const riskRate = v.risk_percentage ?? (() => {
+                const map = { alto: 75, medio: 50, bajo: 25, normal: 10 };
+                return map[riskLevel] || 0;
+            })();
 
             let riskClass = "risk-low";
             let riskLabel = "Normal";
@@ -443,9 +447,6 @@ function initLiveSearch() {
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     initLiveSearch();
-
-    const filterBtn = document.querySelector('button.bg-primary-container');
-    if (filterBtn) filterBtn.onclick = loadHistory;
 
     const clearBtn = document.querySelector('button.bg-white\\/10');
     if (clearBtn) clearBtn.onclick = clearFilters;

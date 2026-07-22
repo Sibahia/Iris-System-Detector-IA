@@ -157,11 +157,16 @@ function initConfidenceSlider() {
 async function uploadVideo() {
     const fileInput = document.getElementById('videoFile');
     const file = fileInput.files[0];
+    const btn = document.getElementById('analyze-btn');
     
     if (!file) {
         showVideoError('Por favor selecciona un video');
         return;
     }
+
+    // Disable button + spinner
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-outlined animate-spin">sync</span> Procesando...';
 
     // Reset UI
     document.getElementById('loading').style.display = 'block';
@@ -202,7 +207,8 @@ async function uploadVideo() {
     } catch (error) {
         showVideoError(error.message || 'Error de conexión con el servidor.');
         document.getElementById('loading').style.display = 'none';
-        // Limpiamos en caso de error para permitir reintento
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis';
         fileInput.value = '';
         resetUploadUI();
     }
@@ -220,14 +226,21 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'completed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
+                const btn = document.getElementById('analyze-btn');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 displayResults(task.result);
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
+                const btn = document.getElementById('analyze-btn');
+                if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 showVideoError(task.error || 'El análisis falló.');
             }
         } catch (error) {
             clearInterval(pollInterval);
+            document.getElementById('loading').style.display = 'none';
+            const btn = document.getElementById('analyze-btn');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
             console.error('Error polling:', error);
         }
     }, 1000);
@@ -278,14 +291,14 @@ function displayResults(result) {
     const crowdThreshold = result.crowd_threshold ?? null;
     const maxPeople = result.max_people_detected ?? 0;
     const peopleExceeded = crowdThreshold !== null && maxPeople >= crowdThreshold;
-    const peopleValue = crowdThreshold !== null ? `${maxPeople} (umbral: ${crowdThreshold})` : String(maxPeople);
+    const peopleValue = String(maxPeople);
 
     const cards = [
         { label: 'Frames Totales', value: result.total_frames ?? 0, blocked: false },
         { label: 'Frames Anómalos', value: result.anomaly_frames ?? 0, blocked: !result.anomaly_frames },
         { label: 'Tasa Anomalías', value: (result.anomaly_rate != null ? (result.anomaly_rate * 100).toFixed(1) + '%' : '0%'), blocked: false },
-        { label: 'Máx. Personas', value: peopleValue, blocked: !peopleExceeded },
-        { label: 'Máx. Armas', value: result.max_weapons_detected ?? 0, blocked: !result.max_weapons_detected },
+        { label: 'Máx. Personas', value: peopleValue, blocked: maxPeople === 0 },
+        { label: 'Máx. Armas', value: result.max_weapons_detected ?? 0, blocked: (result.max_weapons_detected ?? 0) === 0 },
         { label: 'Tipos Anomalía', value: anomalyTypesCount, blocked: !anomalyTypesCount },
         { label: 'Tiempo Proc.', value: (result.processing_time != null ? result.processing_time.toFixed(1) + 's' : '—'), blocked: false },
         { label: 'Modelo', value: result.model_name || 'default', blocked: false },

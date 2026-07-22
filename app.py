@@ -317,18 +317,30 @@ def run_analysis_task(
         final_risk = "normal"
         risk_percentage = 0
 
-        if stats["max_weapons"] > 0:
+        anomaly_rate = stats["anomaly_rate"]
+        max_weapons = stats["max_weapons"]
+        max_people = stats["max_people"]
+        has_altercado = "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]
+
+        if max_weapons > 0:
+            severity = min(max_weapons / 5.0, 1.0)
+            if max_people > 0:
+                severity = min(severity + 0.1, 1.0)
+            risk_percentage = round(71 + severity * 24)
             final_risk = "alto"
-            risk_percentage = 85
-        elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
+        elif has_altercado:
+            risk_percentage = round(75 + min(anomaly_rate * 20, 20))
             final_risk = "alto"
-            risk_percentage = 85
         elif stats["anomaly_frames"] > 0:
-            final_risk = "medio"
-            risk_percentage = 50
+            if anomaly_rate > 0.3:
+                risk_percentage = round(41 + anomaly_rate * 29)
+                final_risk = "medio"
+            else:
+                risk_percentage = round(21 + anomaly_rate * 19)
+                final_risk = "bajo"
         else:
+            risk_percentage = round(1 + anomaly_rate * 19)
             final_risk = "normal"
-            risk_percentage = 10
 
         video_id = save_video_analysis(
             filename=original_filename,
@@ -347,6 +359,9 @@ def run_analysis_task(
             model_name=model_name or "default",
             class_counts=stats.get("class_counts", {}),
             risk_level=final_risk,
+            risk_percentage=risk_percentage,
+            max_people_detected=stats["max_people"],
+            max_weapons_detected=stats["max_weapons"],
         )
 
         if stats["anomaly_frames"] > 0:
@@ -727,20 +742,28 @@ async def analyze_image(
         finally:
             _image_semaphore.release()
         
+        # Calcular porcentaje de riesgo analogo al pipeline de videos
+        risk_level = raw_results["risk_level"]
+        weapon_count = raw_results.get("weapons_count", 0)
+        persons_count = raw_results.get("persons_count", 0)
+
+        if risk_level == "alto":
+            severity = min(weapon_count / 5.0, 1.0)
+            if persons_count > 0 and weapon_count > 0:
+                severity = min(severity + 0.1, 1.0)
+            risk_pct = round(71 + severity * 24)
+        elif raw_results.get("is_anomaly"):
+            risk_pct = round(41 + 29)
+        else:
+            risk_pct = round(1 + 10)
+
         # Guardar en base de datos
-        db_id = save_image_analysis(raw_results)
+        db_id = save_image_analysis(raw_results, risk_percentage=risk_pct)
         
         # Agregar metadata web complementaria para el frontend
         raw_results["image_id"] = db_id
         raw_results["annotated_image_url"] = f"/static/images/{output_filename}"
-        
-        # Calcular porcentaje de riesgo analogo al pipeline de videos
-        risk_pct = 10
-        if raw_results["risk_level"] == "alto":
-            risk_pct = 85
-        elif raw_results["is_anomaly"]:
-            risk_pct = 50
-            
+
         raw_results["risk_percentage"] = risk_pct
         raw_results["crowd_threshold"] = crowd_threshold
         raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
@@ -825,7 +848,6 @@ async def delete_stream_history_item(stream_id: int):
 @app.get("/combined-history")
 async def get_combined_history(
     filename: Optional[str] = Query(None),
-    min_anomaly_rate: Optional[float] = Query(None),
     record_type: Optional[str] = Query(None),
 ):
     videos = get_all_videos(limit=1000)
@@ -879,9 +901,6 @@ async def get_combined_history(
     if filename:
         fl = filename.lower()
         result = [r for r in result if fl in r.get("filename", "").lower()]
-
-    if min_anomaly_rate is not None:
-        result = [r for r in result if (r.get("anomaly_rate") or 0) >= min_anomaly_rate]
 
     result.sort(key=lambda r: r.get("upload_time", "") or "", reverse=True)
 
@@ -1044,7 +1063,22 @@ async def stop_live_stream(data: dict):
     if stream and stream.is_running:
         summary = stream.get_summary()
         try:
-            save_stream_analysis(summary)
+            sr_level = summary.get("risk_level", "normal")
+            sr_rate = summary.get("anomaly_rate", 0)
+            sw_count = summary.get("max_weapon_count", 0)
+            sp_count = summary.get("max_person_count", 0)
+            if sr_level == "alto":
+                severity = min(sw_count / 5.0, 1.0)
+                if sp_count > 0 and sw_count > 0:
+                    severity = min(severity + 0.1, 1.0)
+                stream_risk_pct = round(71 + severity * 24)
+            elif sr_rate > 0.25:
+                stream_risk_pct = round(41 + sr_rate * 29)
+            elif sr_rate > 0:
+                stream_risk_pct = round(21 + sr_rate * 19)
+            else:
+                stream_risk_pct = round(1 + sr_rate * 19)
+            save_stream_analysis(summary, risk_percentage=stream_risk_pct)
         except Exception as e:
             logger.error(f"Failed to save stream summary: {e}")
 

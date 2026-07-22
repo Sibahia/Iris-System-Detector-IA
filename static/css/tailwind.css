@@ -1432,15 +1432,6 @@
   .whitespace-nowrap {
     white-space: nowrap;
   }
-  .text-\[\#ffb4ab\] {
-    color: #ffb4ab;
-  }
-  .text-\[\#ffb4ab\]\/80 {
-    color: color-mix(in oklab, #ffb4ab 80%, transparent);
-  }
-  .text-\[\#ffb77d\] {
-    color: #ffb77d;
-  }
   .text-amber-400 {
     color: var(--color-amber-400);
   }
@@ -2320,11 +2311,10 @@
     background: rgba(255, 255, 255, 0.1);
     border-radius: 10px;
   }
-  .glass-card.has-image, .glass-panel.has-image, .glass-card.has-preview, .glass-panel.has-preview {
-    background-color: transparent !important;
-    backdrop-filter: none !important;
-    -webkit-backdrop-filter: none !important;
-    border-color: rgba(255, 140, 0, 0.3) !important;
+  #analyze-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
   }
 }
 @property --tw-translate-x {
