@@ -24,6 +24,9 @@ class TestImageDetectionAPI:
         return {
             "is_anomaly": False,
             "risk_level": "normal",
+            "persons_count": 0,
+            "weapons_count": 0,
+            "objects_count": 0,
             "detections": {"persons": [], "weapons": []},
             "summary": "No threats detected."
         }
@@ -34,6 +37,9 @@ class TestImageDetectionAPI:
         return {
             "is_anomaly": True,
             "risk_level": "alto",
+            "persons_count": 0,
+            "weapons_count": 1,
+            "objects_count": 0,
             "detections": {
                 "persons": [], 
                 "weapons": [{"class_name": "pistol", "confidence": 0.88}]
@@ -62,14 +68,14 @@ class TestImageDetectionAPI:
         json_data = response.json()
         assert json_data["is_anomaly"] is False
         assert json_data["risk_level"] == "normal"
-        assert json_data["risk_percentage"] == 10
+        assert json_data["risk_percentage"] == 11
         assert json_data["image_id"] == 42
         assert "annotated_image_url" in json_data
 
     @patch("app.save_image_analysis")
     @patch("detection.image_detector.get_image_detector")
     def test_analyze_image_endpoint_critical_risk(self, mock_get_detector, mock_save_db, mock_image_file, mock_detector_success_critical):
-        """Prueba que calcule el 100% de riesgo si el nivel es crítico"""
+        """Prueba que calcule riesgo progresivo según severidad de armas"""
         
         mock_detector_instance = MagicMock()
         mock_detector_instance.process_image.return_value = mock_detector_success_critical
@@ -85,7 +91,7 @@ class TestImageDetectionAPI:
         assert response.status_code == 200
         json_data = response.json()
         assert json_data["risk_level"] == "alto"
-        assert json_data["risk_percentage"] == 85
+        assert json_data["risk_percentage"] == 76
 
     def test_analyze_image_invalid_file_type(self):
         """Prueba que el sistema rechace archivos que no sean imágenes"""
