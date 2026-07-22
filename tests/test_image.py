@@ -33,7 +33,7 @@ class TestImageDetectionAPI:
         """Simula la respuesta real exacta con una anomalía crítica"""
         return {
             "is_anomaly": True,
-            "risk_level": "critico",
+            "risk_level": "alto",
             "detections": {
                 "persons": [], 
                 "weapons": [{"class_name": "pistol", "confidence": 0.88}]
@@ -84,8 +84,8 @@ class TestImageDetectionAPI:
 
         assert response.status_code == 200
         json_data = response.json()
-        assert json_data["risk_level"] == "critico"
-        assert json_data["risk_percentage"] == 100
+        assert json_data["risk_level"] == "alto"
+        assert json_data["risk_percentage"] == 85
 
     def test_analyze_image_invalid_file_type(self):
         """Prueba que el sistema rechace archivos que no sean imágenes"""

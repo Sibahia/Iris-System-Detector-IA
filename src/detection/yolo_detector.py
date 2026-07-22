@@ -198,7 +198,7 @@ class YOLOAnomalyDetector:
                 )
                 anomalies["risk_level"] = entry.get("risk", "alto")
 
-        # 3. Weapon detection (critico - overrides everything)
+        # 3. Weapon detection (alto - overrides everything)
         if weapon_count > 0:
             anomalies["is_anomaly"] = True
             weapon_names = [w["class_name"].upper() for w in detections["weapons"]]
@@ -207,7 +207,7 @@ class YOLOAnomalyDetector:
             anomalies["anomaly_details"].insert(
                 0, f"ARMA DETECTADA: {', '.join(weapon_names)}"
             )
-            anomalies["risk_level"] = entry.get("risk", "critico")
+            anomalies["risk_level"] = entry.get("risk", "alto")
 
         # 4. Behavior-based anomalies (from suspicious.pt etc.)
         for cat_name, cat_detections in detections.get("behaviors", {}).items():
@@ -225,7 +225,7 @@ class YOLOAnomalyDetector:
                         f"{anomaly_type}: {', '.join(behavior_names)}"
                     )
                 # Upgrade risk if behavior risk is higher
-                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3, "critico": 4}
+                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3}
                 if risk_order.get(risk, 0) > risk_order.get(anomalies["risk_level"], 0):
                     anomalies["risk_level"] = risk
 
@@ -340,8 +340,6 @@ class YOLOAnomalyDetector:
         overlay = frame.copy()
         h, w = frame_copy.shape[:2]
 
-        is_critico = anomalies.get("risk_level") == "critico"
-
         drawn_ids = set()
         for det in detections["all_boxes"]:
             det_id = id(det)
@@ -373,8 +371,8 @@ class YOLOAnomalyDetector:
         bar_height = 50
 
         if anomalies["is_anomaly"]:
-            status_color = (0, 0, 255) if is_critico else (0, 100, 200)
-            status_text = "RIESGO CRITICO" if is_critico else "ANOMALIA DETECTADA"
+            status_color = (0, 100, 200)
+            status_text = "ANOMALIA DETECTADA"
             detail_text = ", ".join(anomalies["anomaly_types"])
         else:
             status_color = (0, 150, 0)

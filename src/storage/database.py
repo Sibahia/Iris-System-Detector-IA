@@ -73,7 +73,7 @@ def init_database():
             model_used TEXT NOT NULL,
             used_confidence REAL NOT NULL,
             is_anomaly BOOLEAN NOT NULL,
-            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto', 'critico')),
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto')),
             persons_count INTEGER NOT NULL,
             weapons_count INTEGER NOT NULL,
             objects_count INTEGER NOT NULL,
@@ -133,6 +133,14 @@ def init_database():
     try:
         cursor.execute("ALTER TABLE videos ADD COLUMN risk_level TEXT DEFAULT 'normal'")
         print("Added risk_level column to videos")
+    except sqlite3.OperationalError:
+        pass
+
+    # 9. Migrate: update existing 'critico' risk_level to 'alto'
+    try:
+        cursor.execute("UPDATE videos SET risk_level = 'alto' WHERE risk_level = 'critico'")
+        cursor.execute("UPDATE images SET risk_level = 'alto' WHERE risk_level = 'critico'")
+        print("Migrated critico risk_level to alto")
     except sqlite3.OperationalError:
         pass
 

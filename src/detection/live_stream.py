@@ -208,7 +208,7 @@ class LiveStreamDetector:
         anomaly_rate = self.anomaly_frame_count / self.total_frames if self.total_frames > 0 else 0
         risk = "normal"
         if self.max_weapon_count > 0:
-            risk = "critico"
+            risk = "alto"
         elif anomaly_rate > 0.5:
             risk = "alto"
         elif anomaly_rate > 0.25:

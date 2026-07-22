@@ -318,8 +318,8 @@ def run_analysis_task(
         risk_percentage = 0
 
         if stats["max_weapons"] > 0:
-            final_risk = "critico"
-            risk_percentage = 100
+            final_risk = "alto"
+            risk_percentage = 85
         elif "ALTERCADO_POTENCIAL" in stats["anomaly_types_count"]:
             final_risk = "alto"
             risk_percentage = 85
@@ -735,9 +735,7 @@ async def analyze_image(
         
         # Calcular porcentaje de riesgo analogo al pipeline de videos
         risk_pct = 10
-        if raw_results["risk_level"] == "critico":
-            risk_pct = 100
-        elif raw_results["risk_level"] == "alto":
+        if raw_results["risk_level"] == "alto":
             risk_pct = 85
         elif raw_results["is_anomaly"]:
             risk_pct = 50

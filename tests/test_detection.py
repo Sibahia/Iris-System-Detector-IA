@@ -53,7 +53,7 @@ class TestYOLODetector:
         anomalies = detector.check_anomalies(detections)
         assert anomalies["is_anomaly"] == True
         assert "ARMA_DETECTADA" in anomalies["anomaly_types"]
-        assert anomalies["risk_level"] in ["critico", "critical"]
+        assert anomalies["risk_level"] == "alto"
 
     def test_singleton_factory(self):
         """Test that get_yolo_detector returns the same instance"""

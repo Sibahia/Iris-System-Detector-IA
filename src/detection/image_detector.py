@@ -139,8 +139,8 @@ class YOLOImageDetector:
             weapon_names = list(set([w["class_name"] for w in detections["weapons"]]))
             entry = self.anomaly_map.get("weapon", {})
             anomalies["anomaly_types"].insert(0, entry.get("type", "ARMA_DETECTADA"))
-            anomalies["anomaly_details"].insert(0, f"ELEMENTO CRITICO: {', '.join(weapon_names)}")
-            anomalies["risk_level"] = entry.get("risk", "critico")
+            anomalies["anomaly_details"].insert(0, f"ELEMENTO PELIGROSO: {', '.join(weapon_names)}")
+            anomalies["risk_level"] = entry.get("risk", "alto")
 
         # Behavior-based anomalies
         for cat_name, cat_detections in detections.get("behaviors", {}).items():
@@ -157,7 +157,7 @@ class YOLOImageDetector:
                     anomalies["anomaly_details"].append(
                         f"{anomaly_type}: {', '.join(behavior_names)}"
                     )
-                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3, "critico": 4}
+                risk_order = {"normal": 0, "bajo": 1, "medio": 2, "alto": 3}
                 if risk_order.get(risk, 0) > risk_order.get(anomalies["risk_level"], 0):
                     anomalies["risk_level"] = risk
 
@@ -185,7 +185,6 @@ class YOLOImageDetector:
     def draw_annotations(self, frame: np.ndarray, detections: Dict[str, Any], anomalies: Dict[str, Any]) -> np.ndarray:
         frame_copy = frame.copy()
         h, w = frame_copy.shape[:2]
-        is_critico = anomalies.get("risk_level") == "critico"
 
         for det in detections["all_boxes"]:
             x1, y1, x2, y2 = det["bbox"]
@@ -208,10 +207,7 @@ class YOLOImageDetector:
         cv2.rectangle(overlay, (0, 0), (w, 50), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.6, frame_copy, 0.4, 0, frame_copy)
 
-        if is_critico:
-            status_color = (0, 0, 255)
-            status_text = "RIESGO CRITICO"
-        elif anomalies["is_anomaly"]:
+        if anomalies["is_anomaly"]:
             status_color = (0, 100, 200)
             status_text = "ANOMALIA DETECTADA"
         else:

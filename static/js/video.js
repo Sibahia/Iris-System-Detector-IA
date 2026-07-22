@@ -237,8 +237,6 @@ function displayResults(result) {
     currentResult = result;
     const metricsDiv = document.getElementById('metrics');
 
-    const isCritico = result.risk_level === 'critico';
-
     const anomalyTypesCount = result.anomaly_types
         ? Object.keys(result.anomaly_types).length
         : 0;
@@ -263,20 +261,15 @@ function displayResults(result) {
     }
 
     function riskCard() {
-        const styles = isCritico
-            ? "border glass-risk-high text-on-surface-variant animate-pulse"
-            : "border bg-primary-container/5 text-on-surface";
-        const textStyles = isCritico ? "text-[#ffb4ab] font-bold" : "text-[#ffb77d]";
-        const bgStyle = isCritico
-            ? 'style="background-color: color-mix(in oklab, #93000a 20%, transparent);"'
-            : '';
-        const labelClass = isCritico ? 'text-[#ffb4ab]/80' : 'text-on-surface-variant';
+        const riskColors = { normal: '#4ade80', bajo: '#4ade80', medio: '#fbbf24', alto: '#f87171' };
+        const color = riskColors[result.risk_level] || '#4ade80';
+        const riskLabel = (result.risk_level || 'normal').toUpperCase();
 
         return `
-            <div class="rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center ${isCritico ? '' : 'glass-panel'} ${styles}" ${bgStyle}>
-                <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 ${labelClass}">Nivel de Riesgo</span>
-                <div class="font-headline-md text-headline-md ${textStyles}">
-                    ${result.risk_percentage}% (${(result.risk_level || 'normal').toUpperCase()})
+            <div class="glass-panel rounded-xl p-3 flex flex-col gap-1 transition-all text-center justify-center border bg-primary-container/5 text-on-surface">
+                <span class="font-label-sm text-label-sm uppercase tracking-wider opacity-80 text-on-surface-variant">Nivel de Riesgo</span>
+                <div class="font-headline-md text-headline-md" style="color: ${color}">
+                    ${result.risk_percentage}% (${riskLabel})
                 </div>
             </div>
         `;

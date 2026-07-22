@@ -48,24 +48,22 @@ function renderPage() {
     } else {
         tbody.innerHTML = pageItems.map(v => {
             const riskLevel = v.risk_level || 'normal';
-            const riskRateMap = { critico: 100, alto: 85, medio: 50, bajo: 25, normal: 10 };
+            const riskRateMap = { alto: 85, medio: 50, bajo: 25, normal: 10 };
             const riskRate = riskRateMap[riskLevel] || Math.round((v.anomaly_rate || 0) * 100);
 
             let riskClass = "risk-low";
-            let riskLabel = "Bajo";
+            let riskLabel = "Normal";
             let rowClass = "hover:bg-white/5 transition-colors group";
 
-            if (riskLevel === 'critico' || riskRate > 80) {
-                riskClass = "risk-high";
-                riskLabel = "Crítico";
-                rowClass += " bg-error-container/10";
-            } else if (riskLevel === 'alto' || riskRate > 50) {
+            if (riskLevel === 'alto' || riskRate > 50) {
                 riskClass = "risk-high";
                 riskLabel = "Alto";
                 rowClass += " bg-error-container/5";
             } else if (riskLevel === 'medio' || riskRate > 25) {
                 riskClass = "risk-medium";
                 riskLabel = "Medio";
+            } else if (riskLevel === 'bajo') {
+                riskLabel = "Bajo";
             }
 
             const type = v.record_type || 'video';
@@ -78,7 +76,7 @@ function renderPage() {
                 icon = 'sensors';
                 iconColor = 'text-green-400';
             }
-            if (riskLevel === 'critico' || riskLevel === 'alto' || riskRate > 50) iconColor = 'text-error';
+            if (riskLevel === 'alto' || riskRate > 50) iconColor = 'text-error';
 
             let details = v.frame_count != null ? v.frame_count + ' f' : '—';
 
