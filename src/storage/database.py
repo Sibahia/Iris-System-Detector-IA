@@ -122,6 +122,13 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 7. Migrate: add class_counts column to videos if not exists
+    try:
+        cursor.execute("ALTER TABLE videos ADD COLUMN class_counts TEXT")
+        print("Added class_counts column to videos")
+    except sqlite3.OperationalError:
+        pass
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
@@ -143,7 +150,8 @@ def save_video_analysis(
     output_video_path: Optional[str] = None,
     original_video_path: Optional[str] = None,
     frame_bboxes: Optional[List[List[Dict]]] = None,
-    model_name: Optional[str] = None
+    model_name: Optional[str] = None,
+    class_counts: Optional[Dict] = None
 ) -> int:
     """Save video analysis results to database"""
     conn = get_connection()
@@ -151,19 +159,20 @@ def save_video_analysis(
     
     avg_score = sum(anomaly_scores) / len(anomaly_scores) if anomaly_scores else 0
     max_score = max(anomaly_scores) if anomaly_scores else 0
+    class_counts_json = json.dumps(class_counts) if class_counts else None
     
     cursor.execute('''
         INSERT INTO videos (
             filename, frame_count, anomaly_count, anomaly_rate,
             processing_time, threshold_used, output_video_path,
             original_video_path, avg_anomaly_score, max_anomaly_score,
-            model_used
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            model_used, class_counts
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ''', (
         filename, frame_count, anomaly_count, anomaly_rate,
         processing_time, threshold_used, output_video_path,
         original_video_path, avg_score, max_score,
-        model_name
+        model_name, class_counts_json
     ))
     
     video_id = cursor.lastrowid
@@ -206,7 +215,15 @@ def get_video_by_id(video_id: int) -> Optional[Dict]:
     cursor.execute('SELECT * FROM videos WHERE id = ?', (video_id,))
     row = cursor.fetchone()
     conn.close()
-    return dict(row) if row else None
+    if not row:
+        return None
+    result = dict(row)
+    if isinstance(result.get("class_counts"), str):
+        try:
+            result["class_counts"] = json.loads(result["class_counts"])
+        except Exception:
+            result["class_counts"] = {}
+    return result
 
 
 def get_anomaly_events(video_id: int) -> List[Dict]:

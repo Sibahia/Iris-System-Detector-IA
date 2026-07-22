@@ -328,6 +328,7 @@ def run_analysis_task(
             output_video_path=output_path,
             original_video_path=file_path,
             model_name=model_name or "default",
+            class_counts=stats.get("class_counts", {}),
         )
 
         if stats["anomaly_frames"] > 0:
@@ -900,13 +901,13 @@ async def get_record_detail(record_type: str, record_id: int):
         events = get_anomaly_events(record_id)
         record["anomaly_events"] = events
         record["record_type"] = "video"
-        class_counts = {}
-        for ev in events:
-            bboxes = ev.get("bounding_boxes", [])
-            if isinstance(bboxes, list):
-                for box in bboxes:
-                    name = box.get("class_name", "unknown")
-                    class_counts[name] = class_counts.get(name, 0) + 1
+
+        class_counts = record.get("class_counts", {})
+        if isinstance(class_counts, str):
+            try:
+                class_counts = json.loads(class_counts)
+            except Exception:
+                class_counts = {}
         record["class_counts"] = class_counts
 
         model_name = record.get("model_name") or record.get("model_used", "")
