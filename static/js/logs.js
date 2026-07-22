@@ -83,11 +83,6 @@ function renderPage() {
             if (riskLevel === 'alto' || riskRate > 50) iconColor = 'text-error';
 
             let details = v.frame_count != null ? v.frame_count + ' f' : '—';
-            if (v.class_counts) {
-                const cc = typeof v.class_counts === 'string' ? JSON.parse(v.class_counts) : v.class_counts;
-                if (cc.person) details += ' · ' + cc.person + 'p';
-                if (cc.weapon) details += ' · ' + cc.weapon + 'a';
-            }
 
             let thresholdDisplay = v.threshold_used != null ? v.threshold_used : '—';
 

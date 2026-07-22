@@ -291,7 +291,7 @@ function displayResults(result) {
     const crowdThreshold = result.crowd_threshold ?? null;
     const maxPeople = result.max_people_detected ?? 0;
     const peopleExceeded = crowdThreshold !== null && maxPeople >= crowdThreshold;
-    const peopleValue = crowdThreshold !== null ? `${maxPeople} (umbral: ${crowdThreshold})` : String(maxPeople);
+    const peopleValue = String(maxPeople);
 
     const cards = [
         { label: 'Frames Totales', value: result.total_frames ?? 0, blocked: false },
