@@ -11,17 +11,19 @@ async function loadHistory() {
     tbody.innerHTML = '';
 
     const filename = document.getElementById('search-filename')?.value || '';
-    const minRate = document.getElementById('filter-rate')?.value || '';
+    const riskLevel = document.getElementById('filter-rate')?.value || '';
     const recordType = document.getElementById('filter-type')?.value || '';
 
     let url = '/combined-history?';
     if (filename) url += `filename=${encodeURIComponent(filename)}&`;
-    if (minRate) url += `min_anomaly_rate=${minRate}&`;
     if (recordType) url += `record_type=${recordType}&`;
 
     try {
         const response = await fetch(url);
         allItems = await response.json();
+        if (riskLevel) {
+            allItems = allItems.filter(item => (item.risk_level || 'normal') === riskLevel);
+        }
         currentPage = 1;
         renderPage();
     } catch (e) {
@@ -443,9 +445,6 @@ function initLiveSearch() {
 document.addEventListener('DOMContentLoaded', () => {
     loadHistory();
     initLiveSearch();
-
-    const filterBtn = document.querySelector('button.bg-primary-container');
-    if (filterBtn) filterBtn.onclick = loadHistory;
 
     const clearBtn = document.querySelector('button.bg-white\\/10');
     if (clearBtn) clearBtn.onclick = clearFilters;
