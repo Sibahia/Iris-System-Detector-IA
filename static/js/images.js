@@ -2,6 +2,7 @@
   'use strict';
 
   let currentResult = null;
+  const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
   function initFileUpload() {
     const dropzone = document.getElementById('dropzone-zone');
@@ -17,14 +18,24 @@
     fileInput.addEventListener('change', () => {
       const file = fileInput.files[0];
       if (!file) return;
+
+      var ext = '.' + file.name.split('.').pop().toLowerCase();
+      if (ALLOWED_IMAGE_EXTS.indexOf(ext) === -1) {
+        showError('Tipo de archivo no permitido. Formatos aceptados: JPG, PNG, GIF, BMP, WEBP.');
+        return;
+      }
+
       dropzoneText.textContent = file.name;
       fileInfo.textContent = (file.size / 1024 / 1024).toFixed(2) + ' MB';
-      const reader = new FileReader();
+      var reader = new FileReader();
       reader.onload = function (e) {
         preview.src = e.target.result;
-        dropzone.style.backgroundImage = `url(${e.target.result})`;
+        preview.classList.remove('hidden');
+        dropzone.style.backgroundImage = 'url(' + e.target.result + ')';
         dropzone.style.backgroundSize = 'cover';
         dropzone.style.backgroundPosition = 'center';
+        dropzone.style.backgroundColor = 'transparent';
+        dropzone.style.backdropFilter = 'none';
         dropzone.classList.add('has-image');
       };
       reader.readAsDataURL(file);
@@ -39,13 +50,13 @@
 
     dropzone.addEventListener('dragleave', () => {
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = '';
     });
 
     dropzone.addEventListener('drop', (e) => {
       e.preventDefault();
       dropzone.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-      dropzone.style.backgroundColor = 'rgba(255, 255, 255, 0.04)';
+      dropzone.style.backgroundColor = '';
       if (e.dataTransfer.files.length > 0) {
         fileInput.files = e.dataTransfer.files;
         fileInput.dispatchEvent(new Event('change'));
@@ -70,6 +81,15 @@
     } catch (e) {
       select.innerHTML = '<option value="">Models unavailable</option>';
     }
+
+    try {
+      var cfgResp = await fetch('/config');
+      var cfg = await cfgResp.json();
+      var info = document.getElementById('file-info');
+      if (info && cfg.max_file_size_mb) {
+        info.textContent = 'Tamaño máximo de archivo: ' + cfg.max_file_size_mb + 'MB';
+      }
+    } catch (e) {}
   }
 
   function initConfidenceSlider() {
@@ -330,6 +350,8 @@
     if (!el) return;
     el.textContent = msg;
     el.classList.remove('hidden');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { hideError(); }, 8000);
   }
 
   function hideError() {

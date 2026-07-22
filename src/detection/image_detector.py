@@ -8,6 +8,7 @@ import time
 
 from .class_mapper import classify_classes
 
+
 class YOLOImageDetector:
     def __init__(
         self,
@@ -162,49 +163,41 @@ class YOLOImageDetector:
 
         return anomalies
 
+    CLASS_COLORS = {
+        "weapon": (0, 0, 255),
+        "person": (0, 200, 0),
+        "rifle": (0, 165, 255),
+        "pistol": (255, 0, 200),
+        "gun": (0, 0, 200),
+        "guns": (0, 0, 200),
+        "knife": (0, 255, 255),
+        "Knife": (0, 255, 255),
+        "police": (255, 150, 0),
+        "prisoner": (0, 140, 255),
+        "armed_person": (180, 0, 180),
+        "behavior_assault": (255, 0, 100),
+        "behavior_fight": (255, 100, 0),
+        "behavior_kidnap": (100, 0, 255),
+        "behavior_terror": (0, 0, 180),
+        "behavior_robbery": (255, 165, 0),
+    }
+
     def draw_annotations(self, frame: np.ndarray, detections: Dict[str, Any], anomalies: Dict[str, Any]) -> np.ndarray:
         frame_copy = frame.copy()
         h, w = frame_copy.shape[:2]
         is_critico = anomalies.get("risk_level") == "critico"
 
-        behavior_colors = {
-            "behavior_assault": (255, 0, 100),
-            "behavior_fight": (255, 100, 0),
-            "behavior_kidnap": (100, 0, 255),
-            "behavior_terror": (0, 0, 180),
-            "behavior_robbery": (255, 165, 0),
-        }
-
         for det in detections["all_boxes"]:
             x1, y1, x2, y2 = det["bbox"]
-            category = det["category"]
+            class_name = det["class_name"]
+            color = self.CLASS_COLORS.get(class_name, (255, 120, 0))
 
-            if category == "arma":
-                color = (0, 0, 255)
-                thickness = 3
-                prefix = "ALERTA: "
-            elif category == "persona":
-                color = (0, 0, 255) if (anomalies["is_anomaly"] or is_critico) else (0, 255, 0)
-                thickness = 2
-                prefix = ""
-            else:
-                # Check if it's a behavior
-                behavior_color = None
-                for cat_name, cat_color in behavior_colors.items():
-                    if cat_name in self.BEHAVIOR_CATEGORIES and det["class_id"] in self.BEHAVIOR_CATEGORIES[cat_name]:
-                        behavior_color = cat_color
-                        break
-                if behavior_color:
-                    color = behavior_color
-                    thickness = 2
-                    prefix = "! "
-                else:
-                    color = (255, 120, 0)
-                    thickness = 2
-                    prefix = "OBJ: "
+            is_weapon = det["class_id"] in self.WEAPON_CLASSES
+            thickness = 3 if is_weapon else 2
+            prefix = "ALERTA: " if is_weapon else ""
 
             cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, thickness)
-            label = f"{prefix}{det['class_name']} {det['confidence']:.0%}"
+            label = f"{prefix}{class_name} {det['confidence']:.0%}"
 
             (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), color, -1)
@@ -225,7 +218,9 @@ class YOLOImageDetector:
             status_color = (0, 150, 0)
             status_text = "ESTADO NORMAL"
 
-        detail_text = f"Confianza: {detections['used_confidence']:.2f} | " + (", ".join(anomalies["anomaly_types"]) if anomalies["anomaly_types"] else "Limpio")
+        confidence = detections['used_confidence']
+        anomaly_str = ", ".join(anomalies["anomaly_types"]) if anomalies["anomaly_types"] else "Limpio"
+        detail_text = f"Confianza: {confidence:.2f} | {anomaly_str}"
 
         cv2.putText(frame_copy, status_text, (20, 25), cv2.FONT_HERSHEY_DUPLEX, 0.6, status_color, 1)
         cv2.putText(frame_copy, detail_text, (20, 43), cv2.FONT_HERSHEY_SIMPLEX, 0.4, (220, 220, 220), 1)

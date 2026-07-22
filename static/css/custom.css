@@ -5,6 +5,12 @@ body {
   overflow-x: hidden;
 }
 
+@supports (height: 100dvh) {
+  .min-h-screen {
+    min-height: 100dvh !important;
+  }
+}
+
 .glass-panel {
   background: rgba(255, 255, 255, 0.04);
   backdrop-filter: blur(20px);
@@ -204,4 +210,14 @@ body {
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 10px;
+}
+
+.glass-card.has-image,
+.glass-panel.has-image,
+.glass-card.has-preview,
+.glass-panel.has-preview {
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-color: rgba(255, 140, 0, 0.3) !important;
 }

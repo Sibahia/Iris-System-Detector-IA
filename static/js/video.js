@@ -1,5 +1,6 @@
 let currentVideoUrl = null;
 let currentResult = null;
+const ALLOWED_VIDEO_EXTS = ['.mp4', '.avi', '.mov', '.mkv'];
 
 function getVideoThumbnail(file, maxTime = 0.5) {
     return new Promise((resolve) => {
@@ -39,12 +40,21 @@ function initVideoUpload() {
     fileInput.addEventListener('change', () => {
         const file = fileInput.files[0];
         if (!file) return;
+
+        var ext = '.' + file.name.split('.').pop().toLowerCase();
+        if (ALLOWED_VIDEO_EXTS.indexOf(ext) === -1) {
+            showVideoError('Tipo de archivo no permitido. Formatos aceptados: MP4, AVI, MOV, MKV.');
+            return;
+        }
+
         fileName.textContent = file.name;
         getVideoThumbnail(file).then(dataUrl => {
             if (dataUrl) {
-                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
                 dropzone.style.backgroundSize = 'cover';
                 dropzone.style.backgroundPosition = 'center';
+                dropzone.style.backgroundColor = 'transparent';
+                dropzone.classList.add('has-preview');
             }
         });
         document.getElementById('results').style.display = 'none';
@@ -81,9 +91,11 @@ function updateFileName(input) {
         display.textContent = input.files[0].name;
         getVideoThumbnail(input.files[0]).then(dataUrl => {
             if (dataUrl) {
-                dropzone.style.backgroundImage = `url(${dataUrl})`;
+                dropzone.style.backgroundImage = 'url(' + dataUrl + ')';
                 dropzone.style.backgroundSize = 'cover';
                 dropzone.style.backgroundPosition = 'center';
+                dropzone.style.backgroundColor = 'transparent';
+                dropzone.classList.add('has-preview');
             }
         });
         document.getElementById('results').style.display = 'none';
@@ -101,6 +113,8 @@ function resetUploadUI() {
         dropzone.style.backgroundImage = '';
         dropzone.style.backgroundSize = '';
         dropzone.style.backgroundPosition = '';
+        dropzone.style.backgroundColor = '';
+        dropzone.classList.remove('has-preview');
     }
     if (fileName) fileName.textContent = 'Haz clic para buscar o arrastra el video';
 }
@@ -122,6 +136,15 @@ async function initModelSelect() {
     } catch (e) {
         select.innerHTML = '<option value="">Models unavailable</option>';
     }
+
+    try {
+        var cfgResp = await fetch('/config');
+        var cfg = await cfgResp.json();
+        var info = document.getElementById('file-info');
+        if (info && cfg.max_file_size_mb) {
+            info.textContent = 'Tamaño máximo de archivo: ' + cfg.max_file_size_mb + 'MB';
+        }
+    } catch (e) {}
 }
 
 function initConfidenceSlider() {
@@ -139,7 +162,7 @@ async function uploadVideo() {
     const file = fileInput.files[0];
     
     if (!file) {
-        alert('Por favor selecciona un video');
+        showVideoError('Por favor selecciona un video');
         return;
     }
 
@@ -180,7 +203,7 @@ async function uploadVideo() {
             throw new Error(data.detail || 'Error al iniciar el análisis');
         }
     } catch (error) {
-        alert('Error: ' + error.message);
+        showVideoError(error.message || 'Error de conexión con el servidor.');
         document.getElementById('loading').style.display = 'none';
         // Limpiamos en caso de error para permitir reintento
         fileInput.value = '';
@@ -204,7 +227,7 @@ async function pollTaskStatus(taskId) {
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
                 document.getElementById('loading').style.display = 'none';
-                alert('Error: ' + (task.error || 'El análisis falló.'));
+                showVideoError(task.error || 'El análisis falló.');
             }
         } catch (error) {
             clearInterval(pollInterval);
@@ -391,6 +414,15 @@ function initExportJSON() {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     });
+}
+
+function showVideoError(msg) {
+    var el = document.getElementById('video-error-message');
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.remove('hidden');
+    clearTimeout(el._hideTimer);
+    el._hideTimer = setTimeout(function () { el.classList.add('hidden'); }, 8000);
 }
 
 function init() {

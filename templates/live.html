@@ -1,13 +1,12 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="es">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Live Stream - Anomaly Detection</title>
+    <title>Monitoreo en Vivo - Detección de Anomalías</title>
     <link rel="stylesheet" href="/static/style.css">
     <style>
-        /* live specific overrides not in main css */
         .stream-video {
             aspect-ratio: 16/9;
             background: #000;
@@ -59,7 +58,6 @@
             }
         }
 
-        /* Toast Alert */
         .toast-alert {
             position: fixed;
             top: 24px;
@@ -88,61 +86,62 @@
 <body>
     <div class="container">
         <header class="header">
-            <h1>&#128308; Live Stream Monitor</h1>
+            <h1>&#128308; Monitoreo en Vivo</h1>
             <nav class="nav">
-                <a href="/" class="nav-link">&#8592; Return to Dashboard</a>
+                <a href="/" class="nav-link">&#8592; Volver al Panel</a>
             </nav>
         </header>
 
-        <!-- Toast Alert -->
         <div id="toast-alert" class="toast-alert">
             <span style="font-size: 24px;">&#128680;</span>
             <div>
-                <div style="font-weight: 700; color: var(--danger);">ANOMALY DETECTED</div>
-                <div id="alert-detail" style="font-size: 13px; color: var(--text-secondary);">Traffic Incident</div>
+                <div style="font-weight: 700; color: var(--danger);">ANOMALÍA DETECTADA</div>
+                <div id="alert-detail" style="font-size: 13px; color: var(--text-secondary);">Incidente de Tráfico</div>
             </div>
             <button class="btn btn-sm btn-secondary" onclick="dismissAlert()"
-                style="margin-left: 12px;">Dismiss</button>
+                style="margin-left: 12px;">Descartar</button>
         </div>
 
         <div class="glass" style="padding: 24px; border-radius: var(--radius-lg); margin-bottom: 32px;">
             <div class="settings-row">
                 <div class="control-group">
-                    <label>Video Source</label>
+                    <label>Fuente de Video</label>
                     <select id="sourceType" onchange="updateSourceInput()">
-                        <option value="webcam">Webcam Device</option>
-                        <option value="rtsp">RTSP / IP Camera</option>
-                        <option value="http">HTTP Stream</option>
+                        <option value="webcam">Webcam Local</option>
+                        <option value="rtsp">Cámara RTSP / IP</option>
+                        <option value="http">Stream HTTP</option>
                     </select>
                 </div>
 
                 <div class="control-group" id="webcamSelect">
-                    <label>Select Camera</label>
+                    <label>Seleccionar Cámara</label>
                     <select id="cameraIndex">
-                        <option value="0">Camera 0 (Default)</option>
-                        <option value="1">Camera 1 (External)</option>
+                        <option value="0">Cámara 0 (Predeterminada)</option>
+                        <option value="1">Cámara 1 (Externa)</option>
                     </select>
                 </div>
 
                 <div class="control-group" id="urlInput" style="display:none;">
-                    <label>Stream URL</label>
-                    <input type="text" id="streamUrl" placeholder="rtsp://user:pass@ip:554/stream"
+                    <label>URL del Stream</label>
+                    <input type="text" id="streamUrl" placeholder="rtsp://usuario:pass@ip:554/stream"
                         style="width: 300px;">
                 </div>
 
                 <div class="control-group">
-                    <label>Sensitivity</label>
+                    <label>Sensibilidad</label>
                     <select id="threshold">
-                        <option value="2">High (2+ People)</option>
-                        <option value="3" selected>Medium (3+ People)</option>
-                        <option value="5">Low (5+ People)</option>
+                        <option value="2">Alta (2+ Personas)</option>
+                        <option value="3" selected>Media (3+ Personas)</option>
+                        <option value="5">Baja (5+ Personas)</option>
                     </select>
                 </div>
             </div>
 
+            <div id="live-error-message" class="hidden" style="margin-bottom: 16px; padding: 12px 20px; background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; color: #ef4444; text-align: center;"></div>
+
             <div class="flex-center" style="gap: 16px;">
-                <button id="startBtn" class="btn btn-primary" onclick="startStream()">Start Monitoring &#9654;</button>
-                <button id="stopBtn" class="btn btn-danger" onclick="stopStream()" style="display:none;">Stop Stream
+                <button id="startBtn" class="btn btn-primary" onclick="startStream()">Iniciar Monitoreo &#9654;</button>
+                <button id="stopBtn" class="btn btn-danger" onclick="stopStream()" style="display:none;">Detener Stream
                     &#9209;</button>
             </div>
         </div>
@@ -153,7 +152,7 @@
                     <div class="flex-center">
                         <span id="status-dot" class="status-dot"></span>
                         <span id="status-text"
-                            style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Offline</span>
+                            style="font-weight: 600; font-size: 14px; color: var(--text-secondary);">Desconectado</span>
                     </div>
                     <span class="badge badge-warning" style="font-size: 11px;">CAM-01</span>
                 </div>
@@ -162,7 +161,7 @@
                     <img id="stream-img" style="display:none;">
                     <div id="placeholder" class="stream-placeholder">
                         <div style="font-size: 48px; opacity: 0.2; margin-bottom: 16px;">&#128249;</div>
-                        Waiting for stream...
+                        Esperando señal de video...
                     </div>
                 </div>
 
@@ -173,17 +172,17 @@
                         <div id="stat-fps" style="font-weight: 700; color: var(--text-primary);">0</div>
                     </div>
                     <div style="padding: 16px; text-align: center; border-right: 1px solid var(--border-glass);">
-                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">People
+                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Personas
                         </div>
                         <div id="stat-people" style="font-weight: 700; color: var(--text-accent);">0</div>
                     </div>
                     <div style="padding: 16px; text-align: center; border-right: 1px solid var(--border-glass);">
-                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Vehicles
+                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Vehículos
                         </div>
                         <div id="stat-vehicles" style="font-weight: 700; color: var(--text-primary);">0</div>
                     </div>
                     <div style="padding: 16px; text-align: center;">
-                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Status
+                        <div style="font-size: 11px; text-transform: uppercase; color: var(--text-secondary);">Estado
                         </div>
                         <div id="stat-status" style="font-weight: 700; color: var(--success);">OK</div>
                     </div>
@@ -195,6 +194,15 @@
     <script>
         let isStreaming = false;
         let statusInterval = null;
+
+        function showLiveError(msg) {
+            var el = document.getElementById('live-error-message');
+            if (!el) return;
+            el.textContent = msg;
+            el.classList.remove('hidden');
+            clearTimeout(el._hideTimer);
+            el._hideTimer = setTimeout(function () { el.classList.add('hidden'); }, 8000);
+        }
 
         function updateSourceInput() {
             const type = document.getElementById('sourceType').value;
@@ -208,7 +216,7 @@
             const btn = document.getElementById('startBtn');
             const originalText = btn.innerHTML;
 
-            btn.innerHTML = 'Connecting...';
+            btn.innerHTML = 'Conectando...';
             btn.disabled = true;
 
             let source;
@@ -217,7 +225,7 @@
             } else {
                 source = document.getElementById('streamUrl').value;
                 if (!source) {
-                    alert('Please enter stream URL');
+                    showLiveError('Por favor ingresa la URL del stream');
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                     return;
@@ -246,16 +254,15 @@
                     document.getElementById('stream-img').src = '/live/feed/main?' + Date.now();
 
                     document.getElementById('status-dot').className = 'status-dot live';
-                    document.getElementById('status-text').textContent = 'LIVE';
+                    document.getElementById('status-text').textContent = 'EN VIVO';
                     document.getElementById('status-text').style.color = 'var(--success)';
 
-                    // Start status updates
                     statusInterval = setInterval(updateStatus, 1000);
                 } else {
-                    alert('Failed to start: ' + (data.error || 'Unknown error'));
+                    showLiveError('Error al iniciar: ' + (data.error || 'Error desconocido'));
                 }
             } catch (error) {
-                alert('Connection Error: ' + error.message);
+                showLiveError('Error de conexión: ' + error.message);
             }
 
             btn.innerHTML = originalText;
@@ -278,7 +285,7 @@
             document.getElementById('stream-img').style.display = 'none';
 
             document.getElementById('status-dot').className = 'status-dot';
-            document.getElementById('status-text').textContent = 'OFFLINE';
+            document.getElementById('status-text').textContent = 'DESCONECTADO';
             document.getElementById('status-text').style.color = 'var(--text-secondary)';
 
             if (statusInterval) {
@@ -302,7 +309,7 @@
                 const dotEl = document.getElementById('status-dot');
 
                 if (data.is_anomaly) {
-                    statusEl.textContent = 'ALERT';
+                    statusEl.textContent = 'ALERTA';
                     statusEl.style.color = 'var(--danger)';
                     dotEl.className = 'status-dot alert';
                     showAlert(data.anomaly_types);
@@ -319,7 +326,6 @@
             document.getElementById('alert-detail').textContent = types.join(', ');
             toast.classList.add('show');
 
-            // Auto hide after 5s
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 5000);

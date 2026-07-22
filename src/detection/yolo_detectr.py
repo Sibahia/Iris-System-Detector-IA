@@ -391,29 +391,53 @@ class YOLOAnomalyDetector:
 
         return frame, results
 
+    CLASS_COLORS = {
+        "weapon": (0, 0, 255),
+        "person": (0, 200, 0),
+        "rifle": (0, 165, 255),
+        "pistol": (255, 0, 200),
+        "gun": (0, 0, 200),
+        "guns": (0, 0, 200),
+        "knife": (0, 255, 255),
+        "Knife": (0, 255, 255),
+        "car": (255, 165, 0),
+        "motorcycle": (255, 165, 0),
+        "bus": (255, 165, 0),
+        "truck": (255, 165, 0),
+        "scissors": (0, 255, 255),
+        "baseball bat": (0, 0, 255),
+    }
+
     def draw_annotations(
         self, frame: np.ndarray, detections: Dict[str, Any], anomalies: Dict[str, Any]
     ) -> np.ndarray:
-        """Draw bounding boxes and labels on frame with modern UI"""
+        """Draw bounding boxes and labels on frame with per-class colors"""
         frame_copy = frame.copy()
         overlay = frame.copy()
         h, w = frame_copy.shape[:2]
 
-        # 1. Draw bounding boxes (cleaner style)
-        # Person boxes
-        person_color = (0, 0, 255) if anomalies["is_anomaly"] else (0, 255, 0)
-        for det in detections["persons"]:
-            x1, y1, x2, y2 = det["bbox"]
-            # Corner styling or thinner lines
-            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), person_color, 2)
+        drawn_ids = set()
+        for det in detections["all_boxes"]:
+            det_id = id(det)
+            if det_id in drawn_ids:
+                continue
+            drawn_ids.add(det_id)
 
-            # Label with background
-            label = f"Person {det['confidence']:.0%}"
+            x1, y1, x2, y2 = det["bbox"]
+            class_name = det["class_name"]
+            color = self.CLASS_COLORS.get(class_name, (255, 120, 0))
+
+            is_weapon = det["class_id"] in self.WEAPON_CLASSES
+            thickness = 3 if is_weapon else 2
+            prefix = "! " if is_weapon else ""
+
+            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), color, thickness)
+            label = f"{prefix}{class_name} {det['confidence']:.0%}"
             if "id" in det and det["id"] != -1:
                 label += f" ID:{det['id']}"
 
             (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), person_color, -1)
+            cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), color, -1)
             cv2.putText(
                 frame_copy,
                 label,
@@ -422,44 +446,6 @@ class YOLOAnomalyDetector:
                 0.5,
                 (255, 255, 255),
                 1,
-            )
-
-        # Vehicle boxes
-        for det in detections["vehicles"]:
-            x1, y1, x2, y2 = det["bbox"]
-            cv2.rectangle(
-                frame_copy, (x1, y1), (x2, y2), (255, 165, 0), 2
-            )  # Orange for vehicles
-            label = f"{det['class_name']}"
-
-            (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-            cv2.rectangle(frame_copy, (x1, y1 - 20), (x1 + t_w, y1), (255, 165, 0), -1)
-            cv2.putText(
-                frame_copy,
-                label,
-                (x1, y1 - 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.5,
-                (255, 255, 255),
-                1,
-            )
-
-        # Weapon boxes (Red/Flashy)
-        for det in detections.get("weapons", []):
-            x1, y1, x2, y2 = det["bbox"]
-            cv2.rectangle(frame_copy, (x1, y1), (x2, y2), (0, 0, 255), 3)
-            label = f"⚠ {det['class_name']} {det['confidence']:.0%}"
-
-            (t_w, t_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)
-            cv2.rectangle(frame_copy, (x1, y1 - 25), (x1 + t_w, y1), (0, 0, 255), -1)
-            cv2.putText(
-                frame_copy,
-                label,
-                (x1, y1 - 5),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                0.6,
-                (255, 255, 255),
-                2,
             )
 
         # 2. Modern Header (Semi-transparent)
