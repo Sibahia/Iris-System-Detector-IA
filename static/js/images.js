@@ -10,6 +10,7 @@
     const dropzoneText = document.getElementById('dropzone-text');
     const fileInfo = document.getElementById('file-info');
     const preview = document.getElementById('image-preview');
+    const dropzoneContent = document.getElementById('dropzone-content');
 
     if (!dropzone || !fileInput) return;
 
@@ -31,11 +32,8 @@
       reader.onload = function (e) {
         preview.src = e.target.result;
         preview.classList.remove('hidden');
-        dropzone.style.backgroundImage = 'url(' + e.target.result + ')';
-        dropzone.style.backgroundSize = 'cover';
-        dropzone.style.backgroundPosition = 'center';
-        dropzone.style.backgroundColor = 'transparent';
-        dropzone.style.backdropFilter = 'none';
+        preview.classList.add('active');
+        if (dropzoneContent) dropzoneContent.style.display = 'none';
         dropzone.classList.add('has-image');
       };
       reader.readAsDataURL(file);
