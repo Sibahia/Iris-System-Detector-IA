@@ -50,8 +50,10 @@ function renderPage() {
     } else {
         tbody.innerHTML = pageItems.map(v => {
             const riskLevel = v.risk_level || 'normal';
-            const riskRateMap = { alto: 85, medio: 50, bajo: 25, normal: 10 };
-            const riskRate = riskRateMap[riskLevel] || Math.round((v.anomaly_rate || 0) * 100);
+            const riskRate = v.risk_percentage ?? (() => {
+                const map = { alto: 75, medio: 50, bajo: 25, normal: 10 };
+                return map[riskLevel] || 0;
+            })();
 
             let riskClass = "risk-low";
             let riskLabel = "Normal";
@@ -81,6 +83,11 @@ function renderPage() {
             if (riskLevel === 'alto' || riskRate > 50) iconColor = 'text-error';
 
             let details = v.frame_count != null ? v.frame_count + ' f' : '—';
+            if (v.class_counts) {
+                const cc = typeof v.class_counts === 'string' ? JSON.parse(v.class_counts) : v.class_counts;
+                if (cc.person) details += ' · ' + cc.person + 'p';
+                if (cc.weapon) details += ' · ' + cc.weapon + 'a';
+            }
 
             let thresholdDisplay = v.threshold_used != null ? v.threshold_used : '—';
 

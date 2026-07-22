@@ -359,6 +359,9 @@ def run_analysis_task(
             model_name=model_name or "default",
             class_counts=stats.get("class_counts", {}),
             risk_level=final_risk,
+            risk_percentage=risk_percentage,
+            max_people_detected=stats["max_people"],
+            max_weapons_detected=stats["max_weapons"],
         )
 
         if stats["anomaly_frames"] > 0:
@@ -739,13 +742,6 @@ async def analyze_image(
         finally:
             _image_semaphore.release()
         
-        # Guardar en base de datos
-        db_id = save_image_analysis(raw_results)
-        
-        # Agregar metadata web complementaria para el frontend
-        raw_results["image_id"] = db_id
-        raw_results["annotated_image_url"] = f"/static/images/{output_filename}"
-        
         # Calcular porcentaje de riesgo analogo al pipeline de videos
         risk_level = raw_results["risk_level"]
         weapon_count = raw_results.get("weapons_count", 0)
@@ -760,6 +756,13 @@ async def analyze_image(
             risk_pct = round(41 + 29)
         else:
             risk_pct = round(1 + 10)
+
+        # Guardar en base de datos
+        db_id = save_image_analysis(raw_results, risk_percentage=risk_pct)
+        
+        # Agregar metadata web complementaria para el frontend
+        raw_results["image_id"] = db_id
+        raw_results["annotated_image_url"] = f"/static/images/{output_filename}"
 
         raw_results["risk_percentage"] = risk_pct
         raw_results["crowd_threshold"] = crowd_threshold
@@ -1060,7 +1063,22 @@ async def stop_live_stream(data: dict):
     if stream and stream.is_running:
         summary = stream.get_summary()
         try:
-            save_stream_analysis(summary)
+            sr_level = summary.get("risk_level", "normal")
+            sr_rate = summary.get("anomaly_rate", 0)
+            sw_count = summary.get("max_weapon_count", 0)
+            sp_count = summary.get("max_person_count", 0)
+            if sr_level == "alto":
+                severity = min(sw_count / 5.0, 1.0)
+                if sp_count > 0 and sw_count > 0:
+                    severity = min(severity + 0.1, 1.0)
+                stream_risk_pct = round(71 + severity * 24)
+            elif sr_rate > 0.25:
+                stream_risk_pct = round(41 + sr_rate * 29)
+            elif sr_rate > 0:
+                stream_risk_pct = round(21 + sr_rate * 19)
+            else:
+                stream_risk_pct = round(1 + sr_rate * 19)
+            save_stream_analysis(summary, risk_percentage=stream_risk_pct)
         except Exception as e:
             logger.error(f"Failed to save stream summary: {e}")
 
