@@ -294,7 +294,7 @@ function displayResults(result) {
     const riskHtml = riskCard();
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
     const allMetricItems = metricHtml + riskHtml;
-    const metricCount = (allMetricItems.match(/<div class="rounded-xl/g) || []).length;
+    const metricCount = cards.length + 1;
     metricsDiv.style.gridTemplateColumns = `repeat(${metricCount <= 5 ? metricCount : 5}, minmax(0, 1fr))`;
     metricsDiv.style.justifyContent = 'center';
     metricsDiv.innerHTML = allMetricItems;

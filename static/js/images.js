@@ -214,7 +214,7 @@
       metricCard('Tiempo Inferencia', time + 'ms', false) +
       metricCard('Modelo Usado', model, false);
 
-    var totalItems = (itemsHtml.match(/<div class="rounded-xl/g) || []).length;
+    var totalItems = cards.length + 3;
     grid.style.gridTemplateColumns = 'repeat(' + (totalItems <= 5 ? totalItems : 5) + ', minmax(0, 1fr))';
     grid.style.justifyContent = 'center';
     grid.innerHTML = itemsHtml;
