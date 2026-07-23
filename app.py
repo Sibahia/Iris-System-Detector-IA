@@ -30,6 +30,7 @@ EMAIL_CONFIG = env_value in ("true", "1", "yes")
 SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "300"))
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
+_last_health_log_time = 0
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
@@ -193,18 +194,28 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
+    global _last_health_log_time
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
     request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
     path = request.url.path
-    if path not in ("/api/logs",) and not path.startswith("/static/"):
-        logger.info(json.dumps({
-            "correlation_id": correlation_id,
-            "method": request.method,
-            "path": path,
-            "status": response.status_code,
-        }))
+
+    if path in ("/api/logs", "/favicon.ico"):
+        return response
+
+    if path == "/health":
+        now = time.time()
+        if now - _last_health_log_time < 900:
+            return response
+        _last_health_log_time = now
+
+    logger.info(json.dumps({
+        "correlation_id": correlation_id,
+        "method": request.method,
+        "path": path,
+        "status": response.status_code,
+    }))
     return response
 
 

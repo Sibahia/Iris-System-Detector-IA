@@ -14,7 +14,7 @@ Guía paso a paso para desplegar el sistema en una VPS de Contabo.
 | RAM | 8 GB |
 | Almacenamiento | 100 GB SSD |
 | Puerto | 200 Mbit/s |
-| Dominio | iFreeDomains (.xyz) |
+| Dominio | DuckDNS (iris-detector.duckdns.org) |
 
 ---
 
@@ -232,56 +232,38 @@ docker stats iris-system-detector-ia --no-stream
 
 ---
 
-## Fase 6: Registrar dominio en iFreeDomains
+## Fase 6: Configurar DNS con DuckDNS
 
 ### 6.1 Crear cuenta
 
-1. Ir a https://ifreedomains.com/register.php
-2. Completar registro (gratis)
-3. Buscar un dominio `.xyz` disponible (ej: `iris-detection.xyz`)
-4. Registrar (costo: $0.00)
+1. Ir a https://www.duckdns.org
+2. Iniciar sesion con GitHub (u otro metodo)
+3. Anotar el **token** que aparece en la pagina principal
+4. Agregar un dominio: escribir `iris-detector` y hacer clic en **add domain**
 
-### 6.2 Configurar nameservers
+> El dominio sera `iris-detector.duckdns.org`. DuckDNS es gratuito y no requiere renovacion.
 
-En el panel de iFreeDomains:
+### 6.2 Actualizar token (cada vez que se reinicia la VPS)
 
-1. Ir a **My Domains** > **Manage Domain**
-2. **Management Tools** > **Nameservers**
-3. Seleccionar **Use default nameservers** (o configurar custom)
-4. Si usas nameservers custom, agregar:
-
-```
-ns1.contabo.net
-ns2.contabo.net
-ns3.contabo.net
-```
-
-5. Guardar cambios (propagacion: ~30 min)
-
-### 6.3 Configurar registros DNS
-
-En el panel de iFreeDomains:
-
-1. Ir a **My Domains** > **Manage Domain**
-2. **Manage iFreeDomains DNS**
-3. Agregar registro A:
-
-| Type | Name | Value | TTL |
-|------|------|-------|-----|
-| A | @ | TU_IP_VPS | 300 |
-| A | www | TU_IP_VPS | 300 |
-
-4. Guardar (propagacion: ~30 min)
-
-### 6.4 Verificar propagacion
+DuckDNS renueva la IP automaticamente via cron. En la VPS:
 
 ```bash
-# Desde tu PC local
-nslookup iris-detection.xyz
-# Debe resolver a TU_IP_VPS
+crontab -e
+```
 
-# O usar:
-dig iris-detection.xyz
+Agregar:
+
+```
+*/5 * * * * curl -s "https://www.duckdns.org/update?domains=iris-detector&token=TU_TOKEN&ip=" > /dev/null
+```
+
+Reemplazar `TU_TOKEN` con el token real de DuckDNS.
+
+### 6.3 Verificar propagacion
+
+```bash
+nslookup iris-detector.duckdns.org
+# Debe resolver a 169.58.51.137 (tu IP de VPS)
 ```
 
 ---
@@ -299,7 +281,7 @@ Contenido:
 ```nginx
 server {
     listen 80;
-    server_name iris-detection.xyz www.iris-detection.xyz;
+    server_name iris-detector.duckdns.org;
 
     client_max_body_size 300M;
 
@@ -346,7 +328,7 @@ systemctl reload nginx
 ### 7.3 Verificar
 
 ```bash
-curl -I http://iris-detection.xyz
+curl -I http://iris-detector.duckdns.org
 # Debe retornar HTTP 200
 ```
 
@@ -355,7 +337,7 @@ curl -I http://iris-detection.xyz
 ## Fase 8: Certificado SSL con Let's Encrypt
 
 ```bash
-certbot --nginx -d iris-detection.xyz -d www.iris-detection.xyz
+certbot --nginx -d iris-detector.duckdns.org
 ```
 
 Seguir las instrucciones en pantalla:
@@ -366,7 +348,7 @@ Seguir las instrucciones en pantalla:
 ### Verificar HTTPS
 
 ```bash
-curl -I https://iris-detection.xyz
+curl -I https://iris-detector.duckdns.org
 # Debe retornar HTTP 200 con headers de HSTS
 ```
 
@@ -472,7 +454,7 @@ crontab -l
 |-------------|---------|-------------------|
 | Docker corriendo | `docker compose ps` | Estado: running |
 | Health check | `curl http://localhost:8000/health` | `{"status": "healthy"}` |
-| HTTPS | `curl -I https://iris-detection.xyz` | HTTP 200 |
+| HTTPS | `curl -I https://iris-detector.duckdns.org` | HTTP 200 |
 | Recursos | `docker stats --no-stream` | RAM < 3 GB |
 | Swap | `free -h` | Swap usado: 0-500 MB |
 | Backup | `ls /opt/backups/iris/` | Archivos de hoy |
@@ -483,14 +465,14 @@ crontab -l
 
 | Ruta | URL |
 |------|-----|
-| Dashboard | `https://iris-detection.xyz/` |
-| Video | `https://iris-detection.xyz/video` |
-| Imagenes | `https://iris-detection.xyz/images` |
-| Streams | `https://iris-detection.xyz/stream` |
-| Logs | `https://iris-detection.xyz/logs` |
-| Terminal Logs | `https://iris-detection.xyz/terminal-logs` |
-| Health | `https://iris-detection.xyz/health` |
-| Stats | `https://iris-detection.xyz/statistics` |
+| Dashboard | `https://iris-detector.duckdns.org/` |
+| Video | `https://iris-detector.duckdns.org/video` |
+| Imagenes | `https://iris-detector.duckdns.org/images` |
+| Streams | `https://iris-detector.duckdns.org/stream` |
+| Logs | `https://iris-detector.duckdns.org/logs` |
+| Terminal Logs | `https://iris-detector.duckdns.org/terminal-logs` |
+| Health | `https://iris-detector.duckdns.org/health` |
+| Stats | `https://iris-detector.duckdns.org/statistics` |
 
 ---
 
@@ -569,7 +551,7 @@ curl http://localhost:8000/health
 1. **Sin GPU**: Los modelos YOLO corren en CPU (~1-3 seg por frame). Para video, se procesa cada N frames (configurable).
 2. **SQLite**: Usa WAL mode para concurrencia lectura/escritura. Funciona bien para 1-2 usuarios concurrentes.
 3. **GHCR**: La imagen contiene todo (codigo, modelos, templates, static). Solo se monta la DB en el host.
-4. **DuckDNS como fallback**: Si iFreeDomains tiene problemas, puedes usar DuckDNS como alternativa rapida (sin cambiar nada en Nginx, solo el DNS).
+4. **DuckDNS**: Se usa DuckDNS como proveedor DNS gratuito. No requiere configuracion de nameservers ni paneles de terceros.
 5. **Backup critico**: La DB SQLite es el dato mas importante. Los backups se guardan en `/opt/backups/iris/`.
 6. **Swap**: Se configura 4 GB de swap para evitar OOM con modelos grandes cargados en RAM.
 7. **No git pull en VPS**: Las actualizaciones son via `docker compose pull` (GHCR), no via `git pull`.
