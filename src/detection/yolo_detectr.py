@@ -25,7 +25,8 @@ class VideoWriter:
         self.width = width
         self.height = height
         self.writer = imageio.get_writer(
-            output_path, fps=fps, codec="libx264", pixelformat="yuv420p"
+            output_path, fps=fps, codec="libx264", pixelformat="yuv420p",
+            output_params=["-movflags", "+faststart"]
         )
         self.frame_count = 0
 
