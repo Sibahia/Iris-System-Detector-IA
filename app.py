@@ -30,6 +30,7 @@ EMAIL_CONFIG = env_value in ("true", "1", "yes")
 SITE_TITLE = os.getenv("SITE_TITLE", "Iris")
 MAX_FILE_SIZE_MB = int(os.getenv("MAX_FILE_SIZE_MB", "300"))
 MAX_FILE_SIZE = MAX_FILE_SIZE_MB * 1024 * 1024
+_last_health_log_time = 0
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
@@ -193,18 +194,28 @@ async def security_headers_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def correlation_id_middleware(request: Request, call_next):
+    global _last_health_log_time
     correlation_id = request.headers.get("X-Correlation-ID", str(uuid.uuid4()))
     request.state.correlation_id = correlation_id
     response = await call_next(request)
     response.headers["X-Correlation-ID"] = correlation_id
     path = request.url.path
-    if path not in ("/api/logs",) and not path.startswith("/static/"):
-        logger.info(json.dumps({
-            "correlation_id": correlation_id,
-            "method": request.method,
-            "path": path,
-            "status": response.status_code,
-        }))
+
+    if path in ("/api/logs", "/favicon.ico"):
+        return response
+
+    if path == "/health":
+        now = time.time()
+        if now - _last_health_log_time < 900:
+            return response
+        _last_health_log_time = now
+
+    logger.info(json.dumps({
+        "correlation_id": correlation_id,
+        "method": request.method,
+        "path": path,
+        "status": response.status_code,
+    }))
     return response
 
 
@@ -291,6 +302,12 @@ def run_analysis_task(
     if not _video_semaphore.acquire(timeout=30):
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = "Servidor ocupado, todos los slots de video ocupados. Intente nuevamente."
+        logger.warning(json.dumps({
+            "event": "analysis_rejected",
+            "type": "video",
+            "filename": original_filename,
+            "reason": "concurrency_limit",
+        }))
         return
 
     try:
@@ -407,9 +424,28 @@ def run_analysis_task(
             )
         }
 
+        logger.info(json.dumps({
+            "event": "analysis_complete",
+            "type": "video",
+            "filename": original_filename,
+            "model": model_name or "default",
+            "risk_level": final_risk,
+            "risk_percentage": risk_percentage,
+            "frames": stats["total_frames"],
+            "anomaly_frames": stats["anomaly_frames"],
+            "processing_time": round(stats["processing_time"], 2),
+        }))
+
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.error(f"Task failed [{error_id}]: {e}", exc_info=True)
+        logger.error(json.dumps({
+            "event": "analysis_failed",
+            "type": "video",
+            "filename": original_filename,
+            "model": model_name or "default",
+            "error_id": error_id,
+            "error": str(e),
+        }))
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
@@ -726,6 +762,12 @@ async def analyze_image(
         from detection.image_detector import get_image_detector
 
         if not _image_semaphore.acquire(blocking=False):
+            logger.warning(json.dumps({
+                "event": "analysis_rejected",
+                "type": "image",
+                "filename": safe_filename,
+                "reason": "concurrency_limit",
+            }))
             raise HTTPException(503, "Servidor ocupado, intente nuevamente")
 
         try:
@@ -776,13 +818,31 @@ async def analyze_image(
         if x_idempotency_key:
             _store_result(x_idempotency_key, raw_results)
 
+        logger.info(json.dumps({
+            "event": "analysis_complete",
+            "type": "image",
+            "filename": safe_filename,
+            "model": selected_model,
+            "risk_level": risk_level,
+            "risk_percentage": risk_pct,
+            "persons": persons_count,
+            "weapons": weapon_count,
+        }))
+
         return raw_results
 
     except HTTPException:
         raise
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.error(f"Image analysis failed [{error_id}]: {e}", exc_info=True)
+        logger.error(json.dumps({
+            "event": "analysis_failed",
+            "type": "image",
+            "filename": safe_filename,
+            "model": selected_model,
+            "error_id": error_id,
+            "error": str(e),
+        }))
         raise HTTPException(500, f"Ocurrió un error. Reporte el código: {error_id}")
     finally:
         if os.path.exists(temp_input.name):
