@@ -6,7 +6,7 @@
     },
     "armed_person_ids": [],
     "anomaly_map": {
-      "weapon": { "type": "ARMA_DETECTADA", "risk": "critico" },
+      "weapon": { "type": "ARMA_DETECTADA", "risk": "alto" },
       "crowd": { "type": "AGLOMERACION_DE_PERSONAS", "risk": "medio" },
       "proximity": { "type": "ALTERCADO_POTENCIAL", "risk": "alto" }
     }
@@ -18,7 +18,7 @@
     },
     "armed_person_ids": [],
     "anomaly_map": {
-      "weapon": { "type": "ARMA_DETECTADA", "risk": "critico" },
+      "weapon": { "type": "ARMA_DETECTADA", "risk": "alto" },
       "crowd": { "type": "AGLOMERACION_DE_PERSONAS", "risk": "medio" },
       "proximity": { "type": "ALTERCADO_POTENCIAL", "risk": "alto" }
     }
@@ -29,7 +29,7 @@
     },
     "armed_person_ids": [],
     "anomaly_map": {
-      "weapon": { "type": "ARMA_DETECTADA", "risk": "critico" }
+      "weapon": { "type": "ARMA_DETECTADA", "risk": "alto" }
     }
   },
   "suspicious.pt": {
@@ -46,13 +46,13 @@
     },
     "armed_person_ids": [3, 4],
     "anomaly_map": {
-      "armed_person": { "type": "PERSONA_ARMADA", "risk": "critico" },
+      "armed_person": { "type": "PERSONA_ARMADA", "risk": "alto" },
       "police": { "type": "AUTORIDAD_DETECTADA", "risk": "bajo" },
       "prisoner": { "type": "PRESO_DETECTADO", "risk": "medio" },
       "behavior_assault": { "type": "ASALTO", "risk": "alto" },
       "behavior_fight": { "type": "PELEA", "risk": "alto" },
-      "behavior_kidnap": { "type": "SECUESTRO", "risk": "critico" },
-      "behavior_terror": { "type": "TERRORISMO", "risk": "critico" },
+      "behavior_kidnap": { "type": "SECUESTRO", "risk": "alto" },
+      "behavior_terror": { "type": "TERRORISMO", "risk": "alto" },
       "behavior_robbery": { "type": "ROBO", "risk": "alto" },
       "crowd": { "type": "AGLOMERACION_DE_PERSONAS", "risk": "medio" },
       "proximity": { "type": "ALTERCADO_POTENCIAL", "risk": "alto" }
