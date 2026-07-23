@@ -77,6 +77,15 @@ memory_log_handler = MemoryLogHandler(capacity=500)
 memory_log_handler.setLevel(logging.INFO)
 logging.getLogger().addHandler(memory_log_handler)
 
+class UvicornAccessFilter(logging.Filter):
+    _SUPPRESSED = ("/health", "/api/logs", "/favicon.ico", "/static/")
+
+    def filter(self, record):
+        msg = record.getMessage()
+        return not any(path in msg for path in self._SUPPRESSED)
+
+logging.getLogger("uvicorn.access").addFilter(UvicornAccessFilter())
+
 logger = logging.getLogger(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))

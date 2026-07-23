@@ -73,7 +73,7 @@ def init_database():
             model_used TEXT NOT NULL,
             used_confidence REAL NOT NULL,
             is_anomaly BOOLEAN NOT NULL,
-            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'medio', 'alto')),
+            risk_level TEXT NOT NULL CHECK(risk_level IN ('normal', 'bajo', 'medio', 'alto')),
             persons_count INTEGER NOT NULL,
             weapons_count INTEGER NOT NULL,
             objects_count INTEGER NOT NULL,
