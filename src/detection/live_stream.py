@@ -82,7 +82,6 @@ class LiveStreamDetector:
                 self.cap = cv2.VideoCapture(self.source)
             else:
                 # For network streams, set timeout
-                import os
                 os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "timeout;5000000"  # 5 second timeout
                 self.cap = cv2.VideoCapture(self.source, cv2.CAP_FFMPEG)
                 # Set buffer size for faster response
