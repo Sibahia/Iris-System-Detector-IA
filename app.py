@@ -302,6 +302,12 @@ def run_analysis_task(
     if not _video_semaphore.acquire(timeout=30):
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = "Servidor ocupado, todos los slots de video ocupados. Intente nuevamente."
+        logger.warning(json.dumps({
+            "event": "analysis_rejected",
+            "type": "video",
+            "filename": original_filename,
+            "reason": "concurrency_limit",
+        }))
         return
 
     try:
@@ -418,9 +424,28 @@ def run_analysis_task(
             )
         }
 
+        logger.info(json.dumps({
+            "event": "analysis_complete",
+            "type": "video",
+            "filename": original_filename,
+            "model": model_name or "default",
+            "risk_level": final_risk,
+            "risk_percentage": risk_percentage,
+            "frames": stats["total_frames"],
+            "anomaly_frames": stats["anomaly_frames"],
+            "processing_time": round(stats["processing_time"], 2),
+        }))
+
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.error(f"Task failed [{error_id}]: {e}", exc_info=True)
+        logger.error(json.dumps({
+            "event": "analysis_failed",
+            "type": "video",
+            "filename": original_filename,
+            "model": model_name or "default",
+            "error_id": error_id,
+            "error": str(e),
+        }))
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
@@ -737,6 +762,12 @@ async def analyze_image(
         from detection.image_detector import get_image_detector
 
         if not _image_semaphore.acquire(blocking=False):
+            logger.warning(json.dumps({
+                "event": "analysis_rejected",
+                "type": "image",
+                "filename": safe_filename,
+                "reason": "concurrency_limit",
+            }))
             raise HTTPException(503, "Servidor ocupado, intente nuevamente")
 
         try:
@@ -787,13 +818,31 @@ async def analyze_image(
         if x_idempotency_key:
             _store_result(x_idempotency_key, raw_results)
 
+        logger.info(json.dumps({
+            "event": "analysis_complete",
+            "type": "image",
+            "filename": safe_filename,
+            "model": selected_model,
+            "risk_level": risk_level,
+            "risk_percentage": risk_pct,
+            "persons": persons_count,
+            "weapons": weapon_count,
+        }))
+
         return raw_results
 
     except HTTPException:
         raise
     except Exception as e:
         error_id = str(uuid.uuid4())
-        logger.error(f"Image analysis failed [{error_id}]: {e}", exc_info=True)
+        logger.error(json.dumps({
+            "event": "analysis_failed",
+            "type": "image",
+            "filename": safe_filename,
+            "model": selected_model,
+            "error_id": error_id,
+            "error": str(e),
+        }))
         raise HTTPException(500, f"Ocurrió un error. Reporte el código: {error_id}")
     finally:
         if os.path.exists(temp_input.name):
