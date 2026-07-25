@@ -2,6 +2,8 @@
   'use strict';
 
   let currentResult = null;
+  let currentImageTaskId = null;
+  let imageAbortController = null;
   const ALLOWED_IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
 
   function initFileUpload() {
@@ -115,8 +117,8 @@
     const modelSelect = document.getElementById('model-select');
     const modelName = modelSelect ? modelSelect.value : '';
 
-    const btn = document.getElementById('analyze-btn');
     showLoading(true);
+    hideError();
 
     const formData = new FormData();
     formData.append('file', file);
@@ -124,20 +126,64 @@
     let url = '/analyze-image?confidence=' + confidence + '&crowd_threshold=5';
     if (modelName) url += '&model_name=' + encodeURIComponent(modelName);
 
+    imageAbortController = new AbortController();
+    const uploadTimeout = setTimeout(function () { imageAbortController.abort(); }, 120000);
+
     try {
-      const resp = await fetch(url, { method: 'POST', body: formData });
+      const resp = await fetch(url, { method: 'POST', body: formData, signal: imageAbortController.signal });
+      clearTimeout(uploadTimeout);
       if (!resp.ok) {
         const errData = await resp.json().catch(function () { return {}; });
         throw new Error(errData.detail || 'Error en el análisis');
       }
       const data = await resp.json();
-      currentResult = data;
-      displayResults(data);
+      if (data.task_id) {
+        currentImageTaskId = data.task_id;
+        await pollImageTaskStatus(data.task_id);
+      } else {
+        currentResult = data;
+        displayResults(data);
+      }
     } catch (err) {
-      showError(err.message || 'Error de conexión con el servidor.');
+      if (err.name === 'AbortError') {
+        showError('El análisis se canceló por timeout de conexión.');
+      } else {
+        showError(err.message || 'Error de conexión con el servidor.');
+      }
     } finally {
+      imageAbortController = null;
       showLoading(false);
     }
+  }
+
+  async function pollImageTaskStatus(taskId) {
+    let retries = 0;
+    const maxRetries = 400;
+    const interval = 1500;
+
+    while (retries < maxRetries) {
+      await new Promise(function (r) { setTimeout(r, interval); });
+      retries++;
+
+      if (imageAbortController && imageAbortController.signal.aborted) return;
+
+      try {
+        const r = await fetch('/task/' + taskId, { signal: imageAbortController ? imageAbortController.signal : undefined });
+        const t = await r.json();
+        if (t.status === 'completed') {
+          currentResult = t.result;
+          displayResults(t.result);
+          return;
+        }
+        if (t.status === 'failed') {
+          showError(t.error || 'El análisis falló en el servidor.');
+          return;
+        }
+      } catch (e) {
+        if (e.name === 'AbortError') return;
+      }
+    }
+    showError('Tiempo de espera agotado. Verifica el historial de imágenes.');
   }
 
   function displayResults(data) {
@@ -349,6 +395,12 @@
     initAnalyzeButton();
     initExportJSON();
     initZoom();
+
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'visible' && currentImageTaskId) {
+        pollImageTaskStatus(currentImageTaskId).catch(function () {});
+      }
+    });
   }
 
   if (document.readyState === 'loading') {

@@ -273,9 +273,37 @@ def init_database():
     except sqlite3.OperationalError:
         pass
 
+    # 18. Create failed_analyses table
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS failed_analyses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            record_type TEXT NOT NULL,
+            filename TEXT,
+            error_message TEXT,
+            error_id TEXT,
+            attempted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+
     conn.commit()
     conn.close()
     print("Database initialized successfully!")
+
+
+# =====================================================================
+# FAILED ANALYSIS PERSISTENCE
+# =====================================================================
+
+def save_failed_analysis(record_type: str, filename: str, error_message: str, error_id: str):
+    """Save a failed analysis attempt to the database for visibility"""
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO failed_analyses (record_type, filename, error_message, error_id)
+        VALUES (?, ?, ?, ?)
+    ''', (record_type, filename, error_message, error_id))
+    conn.commit()
+    conn.close()
 
 
 # =====================================================================
