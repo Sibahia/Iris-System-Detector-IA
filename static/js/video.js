@@ -308,8 +308,6 @@ function displayResults(result) {
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
     const allMetricItems = metricHtml + riskHtml;
     const metricCount = cards.length + 1;
-    metricsDiv.style.gridTemplateColumns = `repeat(${metricCount <= 5 ? metricCount : 5}, minmax(0, 1fr))`;
-    metricsDiv.style.justifyContent = 'center';
     metricsDiv.innerHTML = allMetricItems;
 
     function getGroupStyle(groupName) {
@@ -338,9 +336,6 @@ function displayResults(result) {
         const groupNames = Object.keys(classGroups);
 
         if (groupNames.length > 0) {
-            const classCols = groupNames.length <= 5 ? groupNames.length : 5;
-            classContainer.style.display = 'grid';
-            classContainer.style.gridTemplateColumns = `repeat(${classCols}, minmax(0, 1fr))`;
             classContainer.innerHTML = groupNames.map(gName => {
                 const g = classGroups[gName];
                 const total = g.count || 0;

@@ -214,9 +214,6 @@
       metricCard('Tiempo Inferencia', time + 'ms', false) +
       metricCard('Modelo Usado', model, false);
 
-    var totalItems = cards.length + 3;
-    grid.style.gridTemplateColumns = 'repeat(' + (totalItems <= 5 ? totalItems : 5) + ', minmax(0, 1fr))';
-    grid.style.justifyContent = 'center';
     grid.innerHTML = itemsHtml;
   }
 
@@ -233,8 +230,6 @@
       return;
     }
 
-    var classCols = groupNames.length <= 5 ? groupNames.length : 5;
-    container.style.gridTemplateColumns = 'repeat(' + classCols + ', minmax(0, 1fr))';
     container.innerHTML = groupNames.map(function (gName) {
       var g = classGroups[gName];
       var total = g.count || 0;
