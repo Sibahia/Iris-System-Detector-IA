@@ -501,7 +501,6 @@ def run_image_analysis_task(
         return
 
     try:
-        import uuid
         unique_id = str(uuid.uuid4())
         output_filename = f"out_{unique_id}{ext}"
         output_path = os.path.join(IMAGES_DIR, output_filename)
@@ -589,7 +588,9 @@ def run_image_analysis_task(
             try:
                 os.unlink(file_path)
             except:
-                passclass HealthResponse(BaseModel):
+                pass
+
+class HealthResponse(BaseModel):
     status: str
     version: str
 
