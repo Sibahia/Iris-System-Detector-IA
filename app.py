@@ -52,6 +52,7 @@ from storage.database import (
     get_stream_by_id,
     delete_stream,
     get_anomaly_events,
+    save_failed_analysis,
 )
 
 from logs.memory_handler import MemoryLogHandler
@@ -152,7 +153,13 @@ def validate_upload(content: bytes, filename: str, content_type: str, expected_t
     if ext not in allowed:
         raise HTTPException(400, f"La extensión '{ext}' no está permitida para archivos de tipo {expected_type}")
 
-    if not content_type.startswith(f"{expected_type}/"):
+    ALLOWED_CONTENT_TYPES = {
+        "video": {"video/mp4", "video/avi", "video/quicktime", "video/x-msvideo",
+                   "video/x-matroska", "video/webm", "application/octet-stream", ""},
+        "image": {"image/jpeg", "image/png", "image/gif", "image/bmp", "image/webp",
+                   "application/octet-stream", ""},
+    }
+    if content_type not in ALLOWED_CONTENT_TYPES.get(expected_type, set()):
         raise HTTPException(400, f"El tipo de contenido debe ser {expected_type}/*, se recibió '{content_type}'")
 
     magic_mime = detect_mime_by_magic(content)
@@ -455,6 +462,15 @@ def run_analysis_task(
             "error_id": error_id,
             "error": str(e),
         }))
+        try:
+            save_failed_analysis(
+                record_type="video",
+                filename=original_filename,
+                error_message=str(e),
+                error_id=error_id,
+            )
+        except Exception:
+            pass
         TASKS[task_id]["status"] = "failed"
         TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
     finally:
@@ -465,6 +481,114 @@ def run_analysis_task(
             except:
                 pass
 
+
+def run_image_analysis_task(
+    task_id: str,
+    file_path: str,
+    crowd_threshold: int,
+    confidence: float,
+    original_filename: str,
+    model_name: str,
+    ext: str,
+):
+    model_path = os.path.join("models", model_name)
+    TASKS[task_id]["status"] = "processing"
+    TASKS[task_id]["progress"] = 10
+
+    if not _image_semaphore.acquire(blocking=False):
+        TASKS[task_id]["status"] = "failed"
+        TASKS[task_id]["error"] = "Servidor ocupado, intente nuevamente"
+        return
+
+    try:
+        unique_id = str(uuid.uuid4())
+        output_filename = f"out_{unique_id}{ext}"
+        output_path = os.path.join(IMAGES_DIR, output_filename)
+
+        from detection.image_detector import get_image_detector
+
+        TASKS[task_id]["progress"] = 20
+        detector = get_image_detector(
+            model_path=model_path,
+            default_confidence=confidence,
+            crowd_threshold=crowd_threshold,
+            device=DEVICE
+        )
+        TASKS[task_id]["progress"] = 40
+
+        raw_results = detector.process_image(file_path, output_path, confidence)
+        TASKS[task_id]["progress"] = 80
+
+        risk_level = raw_results["risk_level"]
+        weapon_count = raw_results.get("weapons_count", 0)
+        persons_count = raw_results.get("persons_count", 0)
+
+        if risk_level == "alto":
+            severity = min(weapon_count / 5.0, 1.0)
+            if persons_count > 0 and weapon_count > 0:
+                severity = min(severity + 0.1, 1.0)
+            risk_pct = round(71 + severity * 24)
+        elif raw_results.get("is_anomaly"):
+            risk_pct = round(41 + 29)
+        else:
+            risk_pct = round(1 + 10)
+
+        db_id = save_image_analysis(raw_results, risk_percentage=risk_pct)
+
+        raw_results["image_id"] = db_id
+        raw_results["annotated_image_url"] = f"/static/images/{output_filename}"
+        raw_results["risk_percentage"] = risk_pct
+        raw_results["crowd_threshold"] = crowd_threshold
+        raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
+        raw_results["class_groups"] = compute_class_groups(
+            raw_results.get("model_used", ""),
+            raw_results.get("class_counts", {}),
+            getattr(detector, 'model_class_names', {})
+        )
+
+        TASKS[task_id]["progress"] = 100
+        TASKS[task_id]["status"] = "completed"
+        TASKS[task_id]["result"] = raw_results
+
+        logger.info(json.dumps({
+            "event": "analysis_complete",
+            "type": "image",
+            "filename": original_filename,
+            "model": model_name,
+            "risk_level": risk_level,
+            "risk_percentage": risk_pct,
+            "persons": persons_count,
+            "weapons": weapon_count,
+        }))
+
+    except Exception as e:
+        error_id = str(uuid.uuid4())
+        logger.error(json.dumps({
+            "event": "analysis_failed",
+            "type": "image",
+            "filename": original_filename,
+            "model": model_name,
+            "error_id": error_id,
+            "error": str(e),
+        }))
+        try:
+            save_failed_analysis(
+                record_type="image",
+                filename=original_filename,
+                error_message=str(e),
+                error_id=error_id,
+            )
+        except Exception:
+            pass
+        TASKS[task_id]["status"] = "failed"
+        TASKS[task_id]["error"] = f"Ocurrió un error. Reporte el código: {error_id}"
+    finally:
+        _image_semaphore.release()
+        if os.path.exists(file_path):
+            try:
+                os.unlink(file_path)
+            except:
+                pass
 
 class HealthResponse(BaseModel):
     status: str
@@ -712,6 +836,7 @@ async def delete_history_item(video_id: int):
 
 @app.post("/analyze-image")
 async def analyze_image(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     crowd_threshold: int = Query(5),
     confidence: float = Query(CONFIDENCE_THRESHOLD),
@@ -723,16 +848,14 @@ async def analyze_image(
         if cached is not None:
             return cached
 
-    # Validar y resolver que modelo usar
     selected_model = model_name if model_name else DEFAULT_MODEL
     if selected_model not in AVAILABLE_MODELS:
         raise HTTPException(400, f"El modelo '{selected_model}' no está registrado en los modelos disponibles.")
 
-    model_path = os.path.join("models", selected_model)
-
     safe_filename = os.path.basename(file.filename or "image.jpg")
     ext = os.path.splitext(safe_filename)[1] or ".jpg"
     temp_input = tempfile.NamedTemporaryFile(delete=False, suffix=ext)
+
     try:
         content = await file.read()
 
@@ -760,105 +883,41 @@ async def analyze_image(
         raise
     except:
         temp_input.close()
+        try:
+            os.unlink(temp_input.name)
+        except:
+            pass
         raise HTTPException(500, "No se pudo guardar la imagen")
 
-    # Configurar rutas de salida fijas
-    unique_id = str(uuid.uuid4())
-    output_filename = f"out_{unique_id}{ext}"
-    output_path = os.path.join(IMAGES_DIR, output_filename)
-
-    try:
-        from detection.image_detector import get_image_detector
-
-        if not _image_semaphore.acquire(blocking=False):
-            logger.warning(json.dumps({
-                "event": "analysis_rejected",
-                "type": "image",
-                "filename": safe_filename,
-                "reason": "concurrency_limit",
-            }))
-            raise HTTPException(503, "Servidor ocupado, intente nuevamente")
-
-        try:
-            detector = get_image_detector(
-                model_path=model_path,
-                default_confidence=confidence,
-                crowd_threshold=crowd_threshold,
-                device=DEVICE
-            )
-
-            raw_results = await asyncio.to_thread(
-                detector.process_image, temp_input.name, output_path, confidence
-            )
-        finally:
-            _image_semaphore.release()
-        
-        # Calcular porcentaje de riesgo analogo al pipeline de videos
-        risk_level = raw_results["risk_level"]
-        weapon_count = raw_results.get("weapons_count", 0)
-        persons_count = raw_results.get("persons_count", 0)
-
-        if risk_level == "alto":
-            severity = min(weapon_count / 5.0, 1.0)
-            if persons_count > 0 and weapon_count > 0:
-                severity = min(severity + 0.1, 1.0)
-            risk_pct = round(71 + severity * 24)
-        elif raw_results.get("is_anomaly"):
-            risk_pct = round(41 + 29)
-        else:
-            risk_pct = round(1 + 10)
-
-        # Guardar en base de datos
-        db_id = save_image_analysis(raw_results, risk_percentage=risk_pct)
-        
-        # Agregar metadata web complementaria para el frontend
-        raw_results["image_id"] = db_id
-        raw_results["annotated_image_url"] = f"/static/images/{output_filename}"
-
-        raw_results["risk_percentage"] = risk_pct
-        raw_results["crowd_threshold"] = crowd_threshold
-        raw_results["model_classes"] = list(detector.model_class_names.values()) if hasattr(detector, 'model_class_names') else []
-        raw_results["class_groups"] = compute_class_groups(
-            raw_results.get("model_used", ""),
-            raw_results.get("class_counts", {}),
-            getattr(detector, 'model_class_names', {})
-        )
-
-        if x_idempotency_key:
-            _store_result(x_idempotency_key, raw_results)
-
-        logger.info(json.dumps({
-            "event": "analysis_complete",
+    if not _image_semaphore.acquire(blocking=False):
+        logger.warning(json.dumps({
+            "event": "analysis_rejected",
             "type": "image",
             "filename": safe_filename,
-            "model": selected_model,
-            "risk_level": risk_level,
-            "risk_percentage": risk_pct,
-            "persons": persons_count,
-            "weapons": weapon_count,
+            "reason": "concurrency_limit",
         }))
+        raise HTTPException(503, "Servidor ocupado, intente nuevamente")
 
-        return raw_results
+    _image_semaphore.release()
 
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_id = str(uuid.uuid4())
-        logger.error(json.dumps({
-            "event": "analysis_failed",
-            "type": "image",
-            "filename": safe_filename,
-            "model": selected_model,
-            "error_id": error_id,
-            "error": str(e),
-        }))
-        raise HTTPException(500, f"Ocurrió un error. Reporte el código: {error_id}")
-    finally:
-        if os.path.exists(temp_input.name):
-            try:
-                os.unlink(temp_input.name)
-            except:
-                pass
+    task_id = str(uuid.uuid4())
+    TASKS[task_id] = {"status": "queued", "progress": 0, "result": None, "created_at": time.time()}
+
+    background_tasks.add_task(
+        run_image_analysis_task,
+        task_id=task_id,
+        file_path=temp_path,
+        crowd_threshold=crowd_threshold,
+        confidence=confidence,
+        original_filename=safe_filename,
+        model_name=selected_model,
+        ext=ext,
+    )
+
+    if x_idempotency_key:
+        _store_result(x_idempotency_key, {"task_id": task_id})
+
+    return JSONResponse(status_code=202, content={"task_id": task_id})
 
 
 @app.get("/image-history")

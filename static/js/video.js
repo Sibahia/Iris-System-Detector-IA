@@ -1,5 +1,7 @@
 let currentVideoUrl = null;
 let currentResult = null;
+let videoAbortController = null;
+let currentVideoTaskId = null;
 const ALLOWED_VIDEO_EXTS = ['.mp4', '.avi', '.mov', '.mkv'];
 
 function getVideoThumbnail(file, maxTime = 0.5) {
@@ -177,6 +179,9 @@ async function uploadVideo() {
     const formData = new FormData();
     formData.append('file', file);
 
+    videoAbortController = new AbortController();
+    const uploadTimeout = setTimeout(function () { videoAbortController.abort(); }, 180000);
+
     try {
         const threshold = document.getElementById('crowdThreshold').value;
         const confidence = document.getElementById('confidence-slider').value;
@@ -186,8 +191,10 @@ async function uploadVideo() {
         if (modelName) url += '&model_name=' + encodeURIComponent(modelName);
         const response = await fetch(url, {
             method: 'POST',
-            body: formData
+            body: formData,
+            signal: videoAbortController.signal
         });
+        clearTimeout(uploadTimeout);
 
         const data = await response.json();
 
@@ -195,17 +202,23 @@ async function uploadVideo() {
             throw new Error(data.detail || 'Error al iniciar el análisis');
         }
         
-        // Limpiamos el input después de iniciar la carga con éxito
         fileInput.value = '';
         resetUploadUI();
 
         if (data.task_id) {
+            currentVideoTaskId = data.task_id;
             pollTaskStatus(data.task_id);
         } else {
             throw new Error(data.detail || 'Error al iniciar el análisis');
         }
     } catch (error) {
-        showVideoError(error.message || 'Error de conexión con el servidor.');
+        clearTimeout(uploadTimeout);
+        videoAbortController = null;
+        if (error.name === 'AbortError') {
+            showVideoError('La conexión se interrumpió. Intente nuevamente.');
+        } else {
+            showVideoError(error.message || 'Error de conexión con el servidor.');
+        }
         document.getElementById('loading').style.display = 'none';
         btn.disabled = false;
         btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis';
@@ -217,7 +230,9 @@ async function uploadVideo() {
 async function pollTaskStatus(taskId) {
     const pollInterval = setInterval(async () => {
         try {
-            const response = await fetch(`/tasks/${taskId}`);
+            const response = await fetch(`/tasks/${taskId}`, {
+                signal: videoAbortController ? videoAbortController.signal : undefined
+            });
             const task = await response.json();
 
             if (task.status === 'processing') {
@@ -225,23 +240,27 @@ async function pollTaskStatus(taskId) {
                 document.getElementById('progressText').textContent = task.progress + '%';
             } else if (task.status === 'completed') {
                 clearInterval(pollInterval);
+                currentVideoTaskId = null;
+                videoAbortController = null;
                 document.getElementById('loading').style.display = 'none';
                 const btn = document.getElementById('analyze-btn');
                 if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 displayResults(task.result);
             } else if (task.status === 'failed') {
                 clearInterval(pollInterval);
+                currentVideoTaskId = null;
+                videoAbortController = null;
                 document.getElementById('loading').style.display = 'none';
                 const btn = document.getElementById('analyze-btn');
                 if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
                 showVideoError(task.error || 'El análisis falló.');
             }
         } catch (error) {
-            clearInterval(pollInterval);
-            document.getElementById('loading').style.display = 'none';
-            const btn = document.getElementById('analyze-btn');
-            if (btn) { btn.disabled = false; btn.innerHTML = '<span class="material-symbols-outlined" style="font-variation-settings: \'FILL\' 1;">play_arrow</span> Iniciar Análisis'; }
-            console.error('Error polling:', error);
+            if (error.name === 'AbortError') {
+                clearInterval(pollInterval);
+                return;
+            }
+            console.error('Polling error (retrying):', error);
         }
     }, 1000);
 }
@@ -308,8 +327,6 @@ function displayResults(result) {
     const metricHtml = cards.map(c => metricCard(c.label, c.value, c.blocked)).join('');
     const allMetricItems = metricHtml + riskHtml;
     const metricCount = cards.length + 1;
-    metricsDiv.style.gridTemplateColumns = `repeat(${metricCount <= 5 ? metricCount : 5}, minmax(0, 1fr))`;
-    metricsDiv.style.justifyContent = 'center';
     metricsDiv.innerHTML = allMetricItems;
 
     function getGroupStyle(groupName) {
@@ -338,9 +355,6 @@ function displayResults(result) {
         const groupNames = Object.keys(classGroups);
 
         if (groupNames.length > 0) {
-            const classCols = groupNames.length <= 5 ? groupNames.length : 5;
-            classContainer.style.display = 'grid';
-            classContainer.style.gridTemplateColumns = `repeat(${classCols}, minmax(0, 1fr))`;
             classContainer.innerHTML = groupNames.map(gName => {
                 const g = classGroups[gName];
                 const total = g.count || 0;
@@ -421,6 +435,12 @@ function init() {
     initModelSelect();
     initConfidenceSlider();
     initExportJSON();
+
+    document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'visible' && currentVideoTaskId) {
+            pollTaskStatus(currentVideoTaskId);
+        }
+    });
 }
 
 if (document.readyState === 'loading') {
