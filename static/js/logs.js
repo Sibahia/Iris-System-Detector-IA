@@ -300,7 +300,8 @@ function renderGroupedCards(classGroups, classCounts) {
     var groupNames = Object.keys(classGroups);
     if (groupNames.length === 0) return '<div class="text-center py-8 text-on-surface-variant">No hay grupos disponibles</div>';
 
-    var html = '<div class="modal-cards-grid">';
+    var cols = optimalGridCols(groupNames.length, 2, 6);
+    var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
 
     groupNames.forEach(function (gName) {
         var g = classGroups[gName];
@@ -340,7 +341,8 @@ function renderGroupedCards(classGroups, classCounts) {
 function renderIndividualCards(modelClasses, classCounts) {
     if (modelClasses.length === 0) return '<div class="text-center py-8 text-on-surface-variant">No hay clases disponibles</div>';
 
-    var html = '<div class="modal-cards-grid">';
+    var cols = optimalGridCols(modelClasses.length, 2, 6);
+    var html = '<div class="grid gap-3" style="grid-template-columns: repeat(' + cols + ', minmax(0, 1fr));">';
 
     modelClasses.forEach(function (cls) {
         var count = classCounts[cls] || 0;

@@ -139,6 +139,8 @@ async function updateStatus() {
                     }
                     return best;
                 }
+                classContainer.style.display = 'grid';
+                classContainer.style.gridTemplateColumns = `repeat(${optimalGridCols(entries.length, 2, 6)}, minmax(0, 1fr))`;
                 classContainer.innerHTML = entries.map(([cls, count]) => `
                     <div class="glass-card rounded-xl p-stack-md flex flex-col items-center justify-center text-center">
                         <span class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">${cls}</span>
