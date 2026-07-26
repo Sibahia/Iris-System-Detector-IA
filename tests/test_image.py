@@ -1,5 +1,4 @@
 import io
-import time
 import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
@@ -52,12 +51,11 @@ class TestImageDetectionAPI:
     @patch("detection.image_detector.get_image_detector")
     def test_analyze_image_endpoint_success(self, mock_get_detector, mock_save_db, mock_image_file, mock_detector_success_normal):
         """Prueba que el endpoint /analyze-image procese una imagen válida correctamente"""
-
+        
         mock_detector_instance = MagicMock()
         mock_detector_instance.process_image.return_value = mock_detector_success_normal
-        mock_detector_instance.model_class_names = {}
         mock_get_detector.return_value = mock_detector_instance
-
+        
         mock_save_db.return_value = 42
 
         response = client.post(
@@ -66,35 +64,22 @@ class TestImageDetectionAPI:
             params={"crowd_threshold": 5, "confidence": 0.5}
         )
 
-        assert response.status_code == 202
-        task_id = response.json()["task_id"]
-
-        task_data = {}
-        for _ in range(20):
-            task_resp = client.get(f"/tasks/{task_id}")
-            task_data = task_resp.json()
-            if task_data["status"] == "completed":
-                break
-            time.sleep(0.1)
-
-        assert task_data["status"] == "completed"
-        result = task_data["result"]
-        assert result["is_anomaly"] is False
-        assert result["risk_level"] == "normal"
-        assert result["risk_percentage"] == 11
-        assert result["image_id"] == 42
-        assert "annotated_image_url" in result
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["is_anomaly"] is False
+        assert json_data["risk_level"] == "normal"
+        assert json_data["risk_percentage"] == 11
+        assert json_data["image_id"] == 42
+        assert "annotated_image_url" in json_data
 
     @patch("app.save_image_analysis")
     @patch("detection.image_detector.get_image_detector")
     def test_analyze_image_endpoint_critical_risk(self, mock_get_detector, mock_save_db, mock_image_file, mock_detector_success_critical):
         """Prueba que calcule riesgo progresivo según severidad de armas"""
-
+        
         mock_detector_instance = MagicMock()
         mock_detector_instance.process_image.return_value = mock_detector_success_critical
-        mock_detector_instance.model_class_names = {}
         mock_get_detector.return_value = mock_detector_instance
-
         mock_save_db.return_value = 43
 
         response = client.post(
@@ -103,21 +88,10 @@ class TestImageDetectionAPI:
             params={"model_name": DEFAULT_MODEL}
         )
 
-        assert response.status_code == 202
-        task_id = response.json()["task_id"]
-
-        task_data = {}
-        for _ in range(20):
-            task_resp = client.get(f"/tasks/{task_id}")
-            task_data = task_resp.json()
-            if task_data["status"] == "completed":
-                break
-            time.sleep(0.1)
-
-        assert task_data["status"] == "completed"
-        result = task_data["result"]
-        assert result["risk_level"] == "alto"
-        assert result["risk_percentage"] == 76
+        assert response.status_code == 200
+        json_data = response.json()
+        assert json_data["risk_level"] == "alto"
+        assert json_data["risk_percentage"] == 76
 
     def test_analyze_image_invalid_file_type(self):
         """Prueba que el sistema rechace archivos que no sean imágenes"""

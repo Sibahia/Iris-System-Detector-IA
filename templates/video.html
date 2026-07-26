@@ -13,7 +13,7 @@
     class="min-h-screen flex flex-col font-body-md overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container relative">
 
     <header
-            class="fixed top-0 w-full h-16 md:h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-4 md:px-grid-margin shadow-2xl">
+            class="fixed top-0 w-full h-20 bg-white/4 backdrop-blur-[20px] border-b border-white/10 z-50 flex justify-between items-center px-grid-margin shadow-2xl">
             <div class="flex items-center gap-2">
                 <span class="material-symbols-outlined text-primary text-3xl">videocam</span>
                 <h1 class="font-headline-md text-headline-md font-bold text-primary">{{SITE_TITLE}}</h1>
@@ -121,7 +121,7 @@
         <video id="annotated-video" controls class="w-full h-full"></video>
     </div>
     
-    <div class="flex flex-wrap gap-3 sm:gap-4 justify-end">
+    <div class="flex gap-4 justify-end">
         <button id="export-json-btn"
             class="bg-surface-container/80 backdrop-blur-md px-6 py-2 rounded-full border border-white/10 text-on-surface hover:bg-surface-container transition-all flex items-center gap-2">
             <span class="material-symbols-outlined text-sm">download</span>
@@ -129,14 +129,14 @@
         </button>
     </div>
 
-    <div id="metrics" class="metrics-grid w-full"></div>
+    <div id="metrics" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-stack-md w-full"></div>
     
-    <div id="class-cards" class="class-cards-grid w-full"></div>
+    <div id="class-cards" class="grid gap-stack-lg w-full"></div>
 </div>
     </main>
 
     <footer class="w-full py-8 border-t border-outline-variant bg-surface-container-lowest">
-        <div class="flex flex-col md:flex-row justify-between items-center px-4 md:px-grid-margin w-full gap-4">
+        <div class="flex flex-col md:flex-row justify-between items-center px-grid-margin w-full gap-4">
             <div class="flex flex-col md:flex-row items-center gap-4">
                 <span class="font-label-md text-label-md font-bold text-primary flex items-center gap-2">
                     <span class="material-symbols-outlined text-sm">videocam</span> {{SITE_TITLE}}
